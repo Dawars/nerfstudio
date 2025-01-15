@@ -127,7 +127,11 @@ class InputDataset(Dataset):
         else:
             raise NotImplementedError(f"image_type (={image_type}) getter was not implemented, use uint8 or float32")
 
-        data = {"image_idx": image_idx, "image": image}
+        data = {"image_idx": image_idx}
+        data["is_gray"] = torch.ones_like(image[..., :1]) * image.shape[-1] == 1
+        if image.shape[-1] == 1:
+            image = image.tile(1, 1, 3)
+        data["image"] = image
         if self._dataparser_outputs.mask_filenames is not None:
             mask_filepath = self._dataparser_outputs.mask_filenames[image_idx]
             data["mask"] = get_image_mask_tensor_from_path(filepath=mask_filepath, scale_factor=self.scale_factor)
