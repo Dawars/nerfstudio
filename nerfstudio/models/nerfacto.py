@@ -368,7 +368,12 @@ class NerfactoModel(Model):
             pred_accumulation=outputs["accumulation"],
             gt_image=image,
         )
-
+        # convert output to grayscale if input image is grayscale
+        grayscale = batch["is_gray"][:, 0]
+        rgb2gray = pred_rgb[grayscale][:, 0] * 0.2989 + \
+                   pred_rgb[grayscale][:, 1] * 0.5870 + \
+                   pred_rgb[grayscale][:, 2] * 0.1140
+        pred_rgb[grayscale] = rgb2gray.unsqueeze(-1)
         loss_dict["rgb_loss"] = self.rgb_loss(gt_rgb, pred_rgb)
         if self.training:
             loss_dict["interlevel_loss"] = self.config.interlevel_loss_mult * interlevel_loss(

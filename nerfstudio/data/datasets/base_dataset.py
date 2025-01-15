@@ -72,11 +72,14 @@ class InputDataset(Dataset):
             newsize = (int(width * self.scale_factor), int(height * self.scale_factor))
             pil_image = pil_image.resize(newsize, resample=Image.Resampling.BILINEAR)
         image = np.array(pil_image, dtype="uint8")  # shape is (h, w) or (h, w, 3 or 4)
+        if len(image.shape) == 3 and np.allclose(image[..., 0], image[..., 1]) and np.allclose(image[..., 0],
+                                                                                               image[..., 2]):
+            image = image[..., :1]
         if len(image.shape) == 2:
-            image = image[:, :, None].repeat(3, axis=2)
+            image = image[:, :, None]  # (h, w, 1) # .repeat(3, axis=2)
         assert len(image.shape) == 3
         assert image.dtype == np.uint8
-        assert image.shape[2] in [3, 4], f"Image shape of {image.shape} is in correct."
+        assert image.shape[2] in [1, 3, 4], f"Image shape of {image.shape} is incorrect."
         return image
 
     def get_image_float32(self, image_idx: int) -> Float[Tensor, "image_height image_width num_channels"]:

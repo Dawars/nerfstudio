@@ -670,6 +670,12 @@ class SplatfactoModel(Model):
             gt_img = gt_img * mask
             pred_img = pred_img * mask
 
+            # convert output to grayscale if input image is grayscale
+            grayscale = batch["is_gray"][:, 0]
+            rgb2gray = pred_img[grayscale][:, 0] * 0.2989 + \
+                       pred_img[grayscale][:, 1] * 0.5870 + \
+                       pred_img[grayscale][:, 2] * 0.1140
+            pred_img[grayscale] = rgb2gray.unsqueeze(-1)
         Ll1 = torch.abs(gt_img - pred_img).mean()
         simloss = 1 - self.ssim(gt_img.permute(2, 0, 1)[None, ...], pred_img.permute(2, 0, 1)[None, ...])
         if self.config.use_scale_regularization and self.step % 10 == 0:

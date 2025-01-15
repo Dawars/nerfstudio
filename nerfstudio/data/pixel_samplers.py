@@ -336,6 +336,7 @@ class PixelSampler:
         # only sample within the mask, if the mask is in the batch
         all_indices = []
         all_images = []
+        all_grays = []
         all_depth_images = []
 
         assert num_rays_per_batch % 2 == 0, "num_rays_per_batch must be divisible by 2"
@@ -351,6 +352,8 @@ class PixelSampler:
                 indices[:, 0] = i
                 all_indices.append(indices)
                 all_images.append(batch["image"][i][indices[:, 1], indices[:, 2]])
+                if "is_gray" in batch:  # TODO implement for same image size
+                    all_grays.append(batch["is_gray"][i][indices[:, 1], indices[:, 2]])
                 if "depth_image" in batch:
                     all_depth_images.append(batch["depth_image"][i][indices[:, 1], indices[:, 2]])
 
@@ -364,6 +367,8 @@ class PixelSampler:
                 indices[:, 0] = i
                 all_indices.append(indices)
                 all_images.append(batch["image"][i][indices[:, 1], indices[:, 2]])
+                if "is_gray" in batch:
+                    all_grays.append(batch["is_gray"][i][indices[:, 1], indices[:, 2]])
                 if "depth_image" in batch:
                     all_depth_images.append(batch["depth_image"][i][indices[:, 1], indices[:, 2]])
 
@@ -373,12 +378,14 @@ class PixelSampler:
         collated_batch = {
             key: value[c, y, x]
             for key, value in batch.items()
-            if key not in ("image_idx", "image", "mask", "depth_image") and value is not None
+            if key not in ("image_idx", "image", "mask", "depth_image", "is_gray") and value is not None
         }
 
         collated_batch["image"] = torch.cat(all_images, dim=0)
         if "depth_image" in batch:
             collated_batch["depth_image"] = torch.cat(all_depth_images, dim=0)
+        if "is_gray" in batch:
+            collated_batch["is_gray"] = torch.cat(all_grays, dim=0)
 
         assert collated_batch["image"].shape[0] == num_rays_per_batch
 
