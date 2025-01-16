@@ -41,7 +41,8 @@ from nerfstudio.model_components.losses import (
     scale_gradients_by_distance_squared,
 )
 from nerfstudio.model_components.ray_samplers import ProposalNetworkSampler, UniformSampler
-from nerfstudio.model_components.renderers import AccumulationRenderer, DepthRenderer, NormalsRenderer, RGBRenderer
+from nerfstudio.model_components.renderers import AccumulationRenderer, DepthRenderer, NormalsRenderer, RGBRenderer, \
+    UncertaintyRenderer
 from nerfstudio.model_components.scene_colliders import NearFarCollider
 from nerfstudio.model_components.shaders import NormalsShader
 from nerfstudio.models.base_model import Model, ModelConfig
@@ -240,6 +241,7 @@ class NerfactoModel(Model):
         self.renderer_accumulation = AccumulationRenderer()
         self.renderer_depth = DepthRenderer(method="median")
         self.renderer_expected_depth = DepthRenderer(method="expected")
+        self.renderer_uncertainty = UncertaintyRenderer()
         self.renderer_normals = NormalsRenderer()
 
         # shaders
@@ -311,15 +313,28 @@ class NerfactoModel(Model):
         if self.config.use_gradient_scaling:
             field_outputs = scale_gradients_by_distance_squared(field_outputs, ray_samples)
 
-        weights = ray_samples.get_weights(field_outputs[FieldHeadNames.DENSITY])
-        weights_list.append(weights)
+        if self.training and self.config.use_transient_embedding:
+            static_density = field_outputs[FieldHeadNames.DENSITY]
+            transient_density = field_outputs[FieldHeadNames.TRANSIENT_DENSITY]
+            weights_static = ray_samples.get_weights(static_density)
+            weights_transient = ray_samples.get_weights(transient_density)
+            rgb_static_component = self.renderer_rgb(rgb=field_outputs[FieldHeadNames.RGB], weights=weights_static)
+            rgb_transient_component = self.renderer_rgb(
+                rgb=field_outputs[FieldHeadNames.TRANSIENT_RGB], weights=weights_transient
+            )
+            rgb = rgb_static_component + rgb_transient_component
+        else:
+            weights_static = ray_samples.get_weights(field_outputs[FieldHeadNames.DENSITY])
+            weights = weights_static
+            rgb = self.renderer_rgb(rgb=field_outputs[FieldHeadNames.RGB], weights=weights)
+
+        weights_list.append(weights_static)
         ray_samples_list.append(ray_samples)
 
-        rgb = self.renderer_rgb(rgb=field_outputs[FieldHeadNames.RGB], weights=weights)
         with torch.no_grad():
-            depth = self.renderer_depth(weights=weights, ray_samples=ray_samples)
-        expected_depth = self.renderer_expected_depth(weights=weights, ray_samples=ray_samples)
-        accumulation = self.renderer_accumulation(weights=weights)
+            depth = self.renderer_depth(weights=weights_static, ray_samples=ray_samples)
+        expected_depth = self.renderer_expected_depth(weights=weights_static, ray_samples=ray_samples)
+        accumulation = self.renderer_accumulation(weights=weights_static)
 
         outputs = {
             "rgb": rgb,
@@ -329,8 +344,8 @@ class NerfactoModel(Model):
         }
 
         if self.config.predict_normals:
-            normals = self.renderer_normals(normals=field_outputs[FieldHeadNames.NORMALS], weights=weights)
-            pred_normals = self.renderer_normals(field_outputs[FieldHeadNames.PRED_NORMALS], weights=weights)
+            normals = self.renderer_normals(normals=field_outputs[FieldHeadNames.NORMALS], weights=weights_static)
+            pred_normals = self.renderer_normals(field_outputs[FieldHeadNames.PRED_NORMALS], weights=weights_static)
             outputs["normals"] = self.normals_shader(normals)
             outputs["pred_normals"] = self.normals_shader(pred_normals)
         # These use a lot of GPU memory, so we avoid storing them for eval.
@@ -340,17 +355,24 @@ class NerfactoModel(Model):
 
         if self.training and self.config.predict_normals:
             outputs["rendered_orientation_loss"] = orientation_loss(
-                weights.detach(), field_outputs[FieldHeadNames.NORMALS], ray_bundle.directions
+                weights_static.detach(), field_outputs[FieldHeadNames.NORMALS], ray_bundle.directions
             )
 
             outputs["rendered_pred_normal_loss"] = pred_normal_loss(
-                weights.detach(),
+                weights_static.detach(),
                 field_outputs[FieldHeadNames.NORMALS].detach(),
                 field_outputs[FieldHeadNames.PRED_NORMALS],
             )
 
         for i in range(self.config.num_proposal_iterations):
             outputs[f"prop_depth_{i}"] = self.renderer_depth(weights=weights_list[i], ray_samples=ray_samples_list[i])
+
+        # transients
+        if self.training and self.config.use_transient_embedding:
+            uncertainty = self.renderer_uncertainty(field_outputs[FieldHeadNames.UNCERTAINTY], weights_transient)
+            outputs["uncertainty"] = uncertainty + 0.1  # NOTE(ethan): this is the uncertainty min
+            outputs["density_transient"] = field_outputs[FieldHeadNames.TRANSIENT_DENSITY]
+
         return outputs
 
     def get_metrics_dict(self, outputs, batch):
@@ -380,7 +402,16 @@ class NerfactoModel(Model):
                    pred_rgb[grayscale][:, 1] * 0.5870 + \
                    pred_rgb[grayscale][:, 2] * 0.1140
         pred_rgb[grayscale] = rgb2gray.unsqueeze(-1)
-        loss_dict["rgb_loss"] = self.rgb_loss(gt_rgb, pred_rgb)
+
+        # transient loss
+        if self.training and self.config.use_transient_embedding:
+            betas = outputs["uncertainty"]
+            loss_dict["uncertainty_loss"] = 3 + torch.log(betas).mean()
+            loss_dict["density_loss"] = 0.01 * outputs["density_transient"].mean()
+            loss_dict["rgb_loss"] = (((gt_rgb - pred_rgb) ** 2).sum(-1) / (betas[..., 0] ** 2)).mean()
+        else:
+            loss_dict["rgb_loss"] = self.rgb_loss(gt_rgb, pred_rgb)
+
         if self.training:
             loss_dict["interlevel_loss"] = self.config.interlevel_loss_mult * interlevel_loss(
                 outputs["weights_list"], outputs["ray_samples_list"]
