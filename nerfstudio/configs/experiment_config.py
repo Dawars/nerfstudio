@@ -104,8 +104,8 @@ class ExperimentConfig(InstantiateConfig):
         """Dynamically set the experiment name"""
         if self.experiment_name is None:
             datapath = self.pipeline.datamanager.data
-            if getattr(self.pipeline.datamanager, "data_name", None) is not None:
-                self.experiment_name = str(self.pipeline.datamanager.data_name)
+            if getattr(self.pipeline.datamanager.dataparser, "data_name", None) is not None:
+                self.experiment_name = str(self.pipeline.datamanager.dataparser.data_name)
             elif datapath is not None:
                 datapath = datapath.parent if datapath.is_file() else datapath
                 self.experiment_name = str(datapath.stem)
