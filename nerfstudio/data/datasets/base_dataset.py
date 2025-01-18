@@ -32,7 +32,7 @@ from torch.utils.data import Dataset
 
 from nerfstudio.cameras.cameras import Cameras
 from nerfstudio.data.dataparsers.base_dataparser import DataparserOutputs
-from nerfstudio.data.utils.data_utils import get_image_mask_tensor_from_path
+from nerfstudio.data.utils.data_utils import get_image_mask_tensor_from_path, get_semantics_and_mask_tensors_from_path
 
 
 class InputDataset(Dataset):
@@ -55,6 +55,10 @@ class InputDataset(Dataset):
         self.cameras = deepcopy(dataparser_outputs.cameras)
         self.cameras.rescale_output_resolution(scaling_factor=scale_factor)
         self.mask_color = dataparser_outputs.metadata.get("mask_color", None)
+        self.semantics = self.metadata.get("semantics")
+        self.mask_indices = torch.tensor(
+            [self.semantics.classes.index(mask_class) for mask_class in self.semantics.mask_classes]
+        ).view(1, 1, -1) if self.semantics else None
 
     def __len__(self):
         return len(self._dataparser_outputs.image_filenames)
@@ -152,7 +156,19 @@ class InputDataset(Dataset):
         Args:
             image_idx: The image index in the dataset.
         """
-        del data
+        if self.semantics:
+            # handle mask
+            filepath = self.semantics.filenames[data["image_idx"]]
+            semantic_label, mask = get_semantics_and_mask_tensors_from_path(
+                filepath=filepath, mask_indices=self.mask_indices, scale_factor=self.scale_factor
+            )
+            if "mask" in data.keys():
+                mask = mask & data["mask"]
+            assert mask.shape[:2] == data["image"].shape[:2], (
+                f"Mask and image have different shapes. Got {mask.shape[:2]} and {data['image'].shape[:2]}"
+            )
+            del data
+            return {"mask": mask, "semantics": semantic_label}
         return {}
 
     def __getitem__(self, image_idx: int) -> Dict:

@@ -135,6 +135,8 @@ class NerfactoModelConfig(ModelConfig):
     """Average initial density output from MLP. """
     camera_optimizer: CameraOptimizerConfig = field(default_factory=lambda: CameraOptimizerConfig(mode="SO3xR3"))
     """Config of the camera optimizer to use"""
+    fg_mask_loss_mult: float = 0.01
+    """Sky loss multiplier"""
 
 
 class NerfactoModel(Model):
@@ -249,6 +251,7 @@ class NerfactoModel(Model):
 
         # losses
         self.rgb_loss = MSELoss()
+        self.sky_loss = torch.nn.BCEWithLogitsLoss()
         self.step = 0
         # metrics
         from torchmetrics.functional import structural_similarity_index_measure
@@ -428,6 +431,16 @@ class NerfactoModel(Model):
                 loss_dict["pred_normal_loss"] = self.config.pred_normal_loss_mult * torch.mean(
                     outputs["rendered_pred_normal_loss"]
                 )
+            if "semantics" in batch and self.config.fg_mask_loss_mult > 0:
+                # sky loss
+                fg_label = (batch["semantics"] != 2).float().to(self.device)  # sky
+                for i, weights in enumerate(outputs["weights_list"]):
+                    # todo leave out last weight if no separate bg network
+                    weights_sum = weights.sum(dim=1).clip(1e-3, 1.0 - 1e-3)
+                    loss_dict[f"fg_mask_loss_{i}"] = (
+                        self.sky_loss(weights_sum, fg_label) * self.config.fg_mask_loss_mult
+                    )
+
             # Add loss from camera optimizer
             self.camera_optimizer.get_loss_dict(loss_dict)
         return loss_dict

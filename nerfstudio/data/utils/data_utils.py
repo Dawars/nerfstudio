@@ -47,12 +47,20 @@ def get_semantics_and_mask_tensors_from_path(
     """
     if isinstance(mask_indices, List):
         mask_indices = torch.tensor(mask_indices, dtype=torch.int64).view(1, 1, -1)
-    pil_image = Image.open(filepath)
-    if scale_factor != 1.0:
-        width, height = pil_image.size
-        newsize = (int(width * scale_factor), int(height * scale_factor))
-        pil_image = pil_image.resize(newsize, resample=Image.Resampling.NEAREST)
-    semantics = torch.from_numpy(np.array(pil_image, dtype="int64"))[..., None]
+    if filepath.suffix == ".npz":
+        segmask = np.load(filepath, allow_pickle=True)["arr_0"]
+        if scale_factor != 1.0:
+            width, height = segmask.shape
+            newsize = (int(width * scale_factor), int(height * scale_factor))
+            segmask = cv2.resize(segmask, newsize, interpolation=cv2.INTER_NEAREST)
+        semantics = torch.from_numpy(segmask.astype(np.int64))[..., None]
+    else:
+        pil_image = Image.open(filepath)
+        if scale_factor != 1.0:
+            width, height = pil_image.size
+            newsize = (int(width * scale_factor), int(height * scale_factor))
+            pil_image = pil_image.resize(newsize, resample=Image.Resampling.NEAREST)
+        semantics = torch.from_numpy(np.array(pil_image, dtype="int64"))[..., None]
     mask = torch.sum(semantics == mask_indices, dim=-1, keepdim=True) == 0
     return semantics, mask
 

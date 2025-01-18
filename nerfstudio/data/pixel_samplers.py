@@ -106,7 +106,7 @@ class PixelSampler:
         num_valid = 0
         for _ in range(self.config.max_num_iterations):
             c, y, x = (i.flatten() for i in torch.split(indices, 1, dim=-1))
-            chosen_indices_validity = mask.squeeze()[c, y, x].bool()
+            chosen_indices_validity = mask[..., 0][c, y, x].bool()
             num_valid = int(torch.sum(chosen_indices_validity).item())
             if num_valid == num_samples:
                 break
@@ -338,6 +338,7 @@ class PixelSampler:
         all_images = []
         all_grays = []
         all_depth_images = []
+        all_semantic_images = []
 
         assert num_rays_per_batch % 2 == 0, "num_rays_per_batch must be divisible by 2"
         num_rays_per_image = divide_rays_per_image(num_rays_per_batch, num_images)
@@ -356,6 +357,8 @@ class PixelSampler:
                     all_grays.append(batch["is_gray"][i][indices[:, 1], indices[:, 2]])
                 if "depth_image" in batch:
                     all_depth_images.append(batch["depth_image"][i][indices[:, 1], indices[:, 2]])
+                if "semantics" in batch:
+                    all_semantic_images.append(batch["semantics"][i][indices[:, 1], indices[:, 2]])
 
         else:
             for i, num_rays in enumerate(num_rays_per_image):
@@ -371,6 +374,8 @@ class PixelSampler:
                     all_grays.append(batch["is_gray"][i][indices[:, 1], indices[:, 2]])
                 if "depth_image" in batch:
                     all_depth_images.append(batch["depth_image"][i][indices[:, 1], indices[:, 2]])
+                if "semantics" in batch:
+                    all_depth_images.append(batch["semantics"][i][indices[:, 1], indices[:, 2]])
 
         indices = torch.cat(all_indices, dim=0)
 
@@ -378,12 +383,14 @@ class PixelSampler:
         collated_batch = {
             key: value[c, y, x]
             for key, value in batch.items()
-            if key not in ("image_idx", "image", "mask", "depth_image", "is_gray") and value is not None
+            if key not in ("image_idx", "image", "mask", "depth_image", "semantics", "is_gray") and value is not None
         }
 
         collated_batch["image"] = torch.cat(all_images, dim=0)
         if "depth_image" in batch:
             collated_batch["depth_image"] = torch.cat(all_depth_images, dim=0)
+        if "semantics" in batch:
+            collated_batch["semantics"] = torch.cat(all_semantic_images, dim=0)
         if "is_gray" in batch:
             collated_batch["is_gray"] = torch.cat(all_grays, dim=0)
 
