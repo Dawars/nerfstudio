@@ -127,7 +127,7 @@ class PixelSampler:
                 """
             )
             self.config.rejection_sample_mask = False
-            nonzero_indices = torch.nonzero(mask.squeeze(), as_tuple=False).to(device)
+            nonzero_indices = torch.nonzero(mask[..., 0], as_tuple=False).to(device)
             chosen_indices = random.sample(range(len(nonzero_indices)), k=num_samples)
             indices = nonzero_indices[chosen_indices]
 
