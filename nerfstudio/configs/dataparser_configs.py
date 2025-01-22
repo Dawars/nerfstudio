@@ -26,6 +26,7 @@ from nerfstudio.data.dataparsers.blender_dataparser import BlenderDataParserConf
 from nerfstudio.data.dataparsers.colmap_dataparser import ColmapDataParserConfig
 from nerfstudio.data.dataparsers.dnerf_dataparser import DNeRFDataParserConfig
 from nerfstudio.data.dataparsers.dycheck_dataparser import DycheckDataParserConfig
+from nerfstudio.data.dataparsers.heritage_dataparser import HeritageDataParserConfig
 from nerfstudio.data.dataparsers.instant_ngp_dataparser import InstantNGPDataParserConfig
 from nerfstudio.data.dataparsers.minimal_dataparser import MinimalDataParserConfig
 from nerfstudio.data.dataparsers.nerfosr_dataparser import NeRFOSRDataParserConfig
@@ -54,6 +55,7 @@ dataparsers = {
     "sitcoms3d-data": Sitcoms3DDataParserConfig(),
     "scannetpp-data": ScanNetppDataParserConfig(),
     "colmap": ColmapDataParserConfig(),
+    "heritage-data": HeritageDataParserConfig(),
 }
 
 external_dataparsers, _ = discover_dataparsers()
