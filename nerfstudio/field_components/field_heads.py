@@ -39,10 +39,11 @@ class FieldHeadNames(Enum):
     TRANSIENT_RGB = "transient_rgb"
     TRANSIENT_DENSITY = "transient_density"
     SEMANTICS = "semantics"
+    NORMAL = "normal"
     SDF = "sdf"
     ALPHA = "alpha"
     GRADIENT = "gradient"
-
+    OCCUPANCY = "occupancy"
 
 class FieldHead(FieldComponent):
     """Base field output

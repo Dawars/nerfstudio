@@ -505,7 +505,7 @@ class Heritage(DataParser):
             aabb=torch.tensor(
                 [[-aabb_scale, -aabb_scale, -aabb_scale], [aabb_scale, aabb_scale, aabb_scale]], dtype=torch.float32
             ),
-            # coarse_binary_gird=mask,  # todo coarse binary grid mask
+            coarse_binary_gird=mask,  # todo coarse binary grid mask
         )
 
         cameras = Cameras(

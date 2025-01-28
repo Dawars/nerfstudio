@@ -36,7 +36,7 @@ from nerfstudio.fields.vanilla_nerf_field import NeRFField
 from nerfstudio.model_components.losses import L1Loss, MSELoss, ScaleAndShiftInvariantLoss, monosdf_normal_loss
 from nerfstudio.model_components.ray_samplers import LinearDisparitySampler
 from nerfstudio.model_components.renderers import AccumulationRenderer, DepthRenderer, RGBRenderer, SemanticRenderer
-from nerfstudio.model_components.scene_colliders import AABBBoxCollider, NearFarCollider
+from nerfstudio.model_components.scene_colliders import AABBBoxCollider, NearFarCollider, SphereCollider
 from nerfstudio.models.base_model import Model, ModelConfig
 from nerfstudio.utils import colormaps
 from nerfstudio.utils.colors import get_color
@@ -66,6 +66,36 @@ class SurfaceModelConfig(ModelConfig):
     """Monocular normal consistency loss multiplier."""
     mono_depth_loss_mult: float = 0.0
     """Monocular depth consistency loss multiplier."""
+    patch_warp_loss_mult: float = 0.0
+    """Multi-view consistency warping loss multiplier."""
+    patch_size: int = 11
+    """Multi-view consistency warping loss patch size."""
+    patch_warp_angle_thres: float = 0.3
+    """Threshold for valid homograph of multi-view consistency warping loss"""
+    min_patch_variance: float = 0.01
+    """Threshold for minimal patch variance"""
+    topk: int = 4
+    """Number of minimal patch consistency selected for training"""
+    sensor_depth_truncation: float = 0.015
+    """Sensor depth trunction, default value is 0.015 which means 5cm with a rough scale value 0.3 (0.015 = 0.05 * 0.3)"""
+    sensor_depth_l1_loss_mult: float = 0.0
+    """Sensor depth L1 loss multiplier."""
+    sensor_depth_freespace_loss_mult: float = 0.0
+    """Sensor depth free space loss multiplier."""
+    sensor_depth_sdf_loss_mult: float = 0.0
+    """Sensor depth sdf loss multiplier."""
+    sparse_points_sdf_loss_mult: float = 0.0
+    """sparse point sdf loss multiplier"""
+    s3im_loss_mult: float = 0.0
+    """S3IM loss multiplier."""
+    s3im_kernel_size: int = 4
+    """S3IM kernel size."""
+    s3im_stride: int = 4
+    """S3IM stride."""
+    s3im_repeat_time: int = 10
+    """S3IM repeat time."""
+    s3im_patch_height: int = 32
+    """S3IM virtual patch height."""
     sdf_field: SDFFieldConfig = field(default_factory=SDFFieldConfig)
     """Config for SDF Field"""
     background_model: Literal["grid", "mlp", "none"] = "mlp"
@@ -76,6 +106,8 @@ class SurfaceModelConfig(ModelConfig):
     """Total variational loss multiplier"""
     overwrite_near_far_plane: bool = False
     """whether to use near and far collider from command line"""
+    scene_contraction_norm: Literal["inf", "l2"] = "inf"
+    """Which norm to use for the scene contraction."""
 
 
 class SurfaceModel(Model):
@@ -91,8 +123,14 @@ class SurfaceModel(Model):
         """Set the fields and modules."""
         super().populate_modules()
 
-        self.scene_contraction = SceneContraction(order=float("inf"))
+        if self.config.scene_contraction_norm == "inf":
+            order = float("inf")
+        elif self.config.scene_contraction_norm == "l2":
+            order = None
+        else:
+            raise ValueError("Invalid scene contraction norm")
 
+        self.scene_contraction = SceneContraction(order=order)
         # Can we also use contraction for sdf?
         # Fields
         self.field = self.config.sdf_field.setup(
@@ -103,7 +141,15 @@ class SurfaceModel(Model):
         )
 
         # Collider
-        self.collider = AABBBoxCollider(self.scene_box, near_plane=0.05)
+        if self.scene_box.collider_type == "near_far":
+            self.collider = NearFarCollider(near_plane=self.scene_box.near, far_plane=self.scene_box.far)
+        elif self.scene_box.collider_type == "box":
+            self.collider = AABBBoxCollider(self.scene_box, near_plane=self.scene_box.near)
+        elif self.scene_box.collider_type == "sphere":
+            # TODO do we also use near if the ray don't intersect with the sphere
+            self.collider = SphereCollider(radius=self.scene_box.radius, soft_intersection=True)
+        else:
+            raise NotImplementedError
 
         # command line near and far has highest priority
         if self.config.overwrite_near_far_plane:
@@ -146,11 +192,20 @@ class SurfaceModel(Model):
         self.renderer_accumulation = AccumulationRenderer()
         self.renderer_depth = DepthRenderer(method="expected")
         self.renderer_normal = SemanticRenderer()
-
+        # patch warping
+        # self.patch_warping = PatchWarping(
+        #     patch_size=self.config.patch_size, valid_angle_thres=self.config.patch_warp_angle_thres
+        # )
         # losses
         self.rgb_loss = L1Loss()
+        # self.s3im_loss = S3IM(s3im_kernel_size=self.config.s3im_kernel_size, s3im_stride=self.config.s3im_stride, s3im_repeat_time=self.config.s3im_repeat_time, s3im_patch_height=self.config.s3im_patch_height)
+
         self.eikonal_loss = MSELoss()
         self.depth_loss = ScaleAndShiftInvariantLoss(alpha=0.5, scales=1)
+        # self.patch_loss = MultiViewLoss(
+        #     patch_size=self.config.patch_size, topk=self.config.topk, min_patch_variance=self.config.min_patch_variance
+        # )
+        # self.sensor_depth_loss = SensorDepthLoss(truncation=self.config.sensor_depth_truncation)
 
         # metrics
         from torchmetrics.functional import structural_similarity_index_measure
@@ -212,7 +267,7 @@ class SurfaceModel(Model):
         # the rendered depth is point-to-point distance and we should convert to depth
         depth = depth / ray_bundle.metadata["directions_norm"]
 
-        normal = self.renderer_normal(semantics=field_outputs[FieldHeadNames.NORMALS], weights=weights)
+        normal = self.renderer_normal(semantics=field_outputs[FieldHeadNames.NORMAL], weights=weights)
         accumulation = self.renderer_accumulation(weights=weights)
 
         # background model
