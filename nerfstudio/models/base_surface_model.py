@@ -141,15 +141,17 @@ class SurfaceModel(Model):
         )
 
         # Collider
-        if self.scene_box.collider_type == "near_far":
-            self.collider = NearFarCollider(near_plane=self.scene_box.near, far_plane=self.scene_box.far)
-        elif self.scene_box.collider_type == "box":
-            self.collider = AABBBoxCollider(self.scene_box, near_plane=self.scene_box.near)
-        elif self.scene_box.collider_type == "sphere":
-            # TODO do we also use near if the ray don't intersect with the sphere
-            self.collider = SphereCollider(radius=self.scene_box.radius, soft_intersection=True)
-        else:
-            raise NotImplementedError
+        # if self.scene_box.collider_type == "near_far":
+        #     self.collider = NearFarCollider(near_plane=self.scene_box.near, far_plane=self.scene_box.far)
+        # elif self.scene_box.collider_type == "box":
+        #     self.collider = AABBBoxCollider(self.scene_box, near_plane=self.scene_box.near)
+        # elif self.scene_box.collider_type == "sphere":
+        #     # TODO do we also use near if the ray don't intersect with the sphere
+        #     self.collider = SphereCollider(radius=self.scene_box.radius, soft_intersection=True)
+        # else:
+        #     raise NotImplementedError
+        # Neural Reconstruction in the wild use sphere collider so we overwrite it here
+        self.collider = SphereCollider(radius=1.0, soft_intersection=False)
 
         # command line near and far has highest priority
         if self.config.overwrite_near_far_plane:
