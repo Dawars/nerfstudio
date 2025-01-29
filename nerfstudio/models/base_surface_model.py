@@ -151,7 +151,7 @@ class SurfaceModel(Model):
         # else:
         #     raise NotImplementedError
         # Neural Reconstruction in the wild use sphere collider so we overwrite it here
-        self.collider = SphereCollider(radius=1.0, soft_intersection=False)
+        self.collider = SphereCollider(center=torch.zeros([3,]), radius=1.0, soft_intersection=False)
 
         # command line near and far has highest priority
         if self.config.overwrite_near_far_plane:
