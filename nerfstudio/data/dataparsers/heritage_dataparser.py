@@ -321,11 +321,6 @@ class Heritage(DataParser):
         semantic_filenames = []
         sparse_pts = []
 
-        flip = torch.eye(3)
-        flip[0, 0] = -1.0
-        flip = flip.double()
-
-
         for filename in file_list:
             if filename not in img_path_to_id.keys():
                 print(f"image {filename} not found in sfm result!!")
@@ -347,7 +342,7 @@ class Heritage(DataParser):
             widths.append(torch.tensor(cam.width))
 
             image_filenames.append(self.data / "dense/images" / img.name)
-            mask_filenames.append(self.data / "masks" / img.name.replace(".jpg", ".npy"))
+            mask_filenames.append(self.data / "masks" / img.name.replace(".jpg", mask_ext))
             semantic_filenames.append(self.data / "semantic_maps" / img.name.replace(".jpg", ".npz"))
             # if self.config.include_mono_prior:
             #     depth_filenames.append(self.data / "depth" / img.name.replace(".jpg", self.config.depth_extension))
@@ -411,11 +406,11 @@ class Heritage(DataParser):
 
         # normalize with scene radius
         radius = scene_config["radius"]
-        scale = 1.0 / (radius * 1.01)
+        scale = 1.0 / (radius * 1.01)  # enlarge the radius a little bit
         origin = np.array(scene_config["origin"]).reshape(1, 3)
         origin = torch.from_numpy(origin)
         poses[:, :3, 3] -= origin
-        poses[:, :3, 3] *= scale  # enlarge the radius a little bit
+        poses[:, :3, 3] *= scale
 
         poses, transform_matrix = camera_utils.auto_orient_and_center_poses(
             poses, method=self.config.orientation_method, center_method=self.config.center_method
@@ -438,9 +433,9 @@ class Heritage(DataParser):
 
         # filter with bbox
         # normalize cropped area to [-1, -1]
-        scene_origin = bbx_min + (bbx_max - bbx_min) / 2
+        scene_origin = origin.numpy()
 
-        points_normalized = (points_ori - scene_origin) / (bbx_max - bbx_min)
+        points_normalized = (points_ori - scene_origin) / (bbx_max - bbx_min) * 2
         # filter out points out of [-1, 1]
         mask = np.prod((points_normalized > -1), axis=-1, dtype=bool) & np.prod(
             (points_normalized < 1), axis=-1, dtype=bool
@@ -455,8 +450,6 @@ class Heritage(DataParser):
         points_ori -= origin
         points_ori[:, :3] *= scale  # should be the same as pose preprocessing
         points_ori[:, :3] = points_ori[:, :3] @ transform_matrix[:3, :3].t() + transform_matrix[:3, 3:].t()
-
-        print(points_ori.shape)
 
         # expand and quantify
 
@@ -494,18 +487,14 @@ class Heritage(DataParser):
 
         points_valid = offset_cube[mask]
         save_points("quantified_points.ply", points_valid.numpy())
-        # breakpoint()
 
         mask = mask.reshape(grid_size, grid_size, grid_size).contiguous()
 
         # in x,y,z order
         # assumes that the scene is centered at the origin
-        aabb_scale = self.config.scene_scale
         scene_box = SceneBox(
-            aabb=torch.tensor(
-                [[-aabb_scale, -aabb_scale, -aabb_scale], [aabb_scale, aabb_scale, aabb_scale]], dtype=torch.float32
-            ),
-            coarse_binary_gird=mask,  # todo coarse binary grid mask
+            aabb=torch.from_numpy(np.stack([bbx_min, bbx_max]) * scale),
+            coarse_binary_gird=mask,
         )
 
         cameras = Cameras(
