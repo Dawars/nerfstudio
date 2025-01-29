@@ -202,6 +202,7 @@ class SurfaceModel(Model):
 
         self.eikonal_loss = MSELoss()
         self.depth_loss = ScaleAndShiftInvariantLoss(alpha=0.5, scales=1)
+        self.sky_loss = torch.nn.BCEWithLogitsLoss()
         # self.patch_loss = MultiViewLoss(
         #     patch_size=self.config.patch_size, topk=self.config.topk, min_patch_variance=self.config.min_patch_variance
         # )
@@ -350,12 +351,13 @@ class SurfaceModel(Model):
             grad_theta = outputs["eik_grad"]
             loss_dict["eikonal_loss"] = ((grad_theta.norm(2, dim=-1) - 1) ** 2).mean() * self.config.eikonal_loss_mult
 
-            # foreground mask loss
-            if "fg_mask" in batch and self.config.fg_mask_loss_mult > 0.0:
-                fg_label = batch["fg_mask"].float().to(self.device)
+            # sky loss
+            if "semantics" in batch and self.config.fg_mask_loss_mult > 0:
+                # sky loss
+                fg_label = (batch["semantics"] != 2).float().to(self.device)  # sky
                 weights_sum = outputs["weights"].sum(dim=1).clip(1e-3, 1.0 - 1e-3)
-                loss_dict["fg_mask_loss"] = (
-                    F.binary_cross_entropy(weights_sum, fg_label) * self.config.fg_mask_loss_mult
+                loss_dict[f"fg_mask_loss"] = (
+                        self.sky_loss(weights_sum, fg_label) * self.config.fg_mask_loss_mult
                 )
 
             # monocular normal loss
