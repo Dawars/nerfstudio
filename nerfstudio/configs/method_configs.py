@@ -80,6 +80,7 @@ descriptions = {
     "generfacto": "Generative Text to NeRF model",
     "neus": "Implementation of NeuS. (slow)",
     "neus-facto": "Implementation of NeuS-Facto. (slow)",
+    "neus-facto-bigmlp": "NeuS-facto with big MLP, it is used in training heritage data with 8 gpus",
     "splatfacto": "Gaussian Splatting model",
     "splatfacto-big": "Larger version of Splatfacto with higher quality.",
 }
@@ -583,6 +584,57 @@ method_configs["neus-facto"] = TrainerConfig(
         "field_background": {
             "optimizer": AdamOptimizerConfig(lr=5e-4, eps=1e-15),
             "scheduler": CosineDecaySchedulerConfig(warm_up_end=500, learning_rate_alpha=0.05, max_steps=20001),
+        },
+    },
+    viewer=ViewerConfig(num_rays_per_chunk=1 << 15),
+    vis="viewer",
+)
+
+method_configs["neus-facto-bigmlp"] = TrainerConfig(
+    method_name="neus-facto-bigmlp",
+    steps_per_eval_image=5000,
+    steps_per_eval_batch=5000,
+    steps_per_save=2000,
+    steps_per_eval_all_images=1000000,  # set to a very large model so we don't eval with all images
+    max_num_iterations=100001,
+    mixed_precision=False,
+    pipeline=VanillaPipelineConfig(
+        datamanager=VanillaDataManagerConfig(
+            dataparser=SDFStudioDataParserConfig(),
+            train_num_images_to_sample_from=20,
+            train_num_times_to_repeat_images=100,
+            eval_num_images_to_sample_from=20,
+            eval_num_times_to_repeat_images=100,
+            train_num_rays_per_batch=2048,
+            eval_num_rays_per_batch=2048,
+        ),
+        model=NeuSFactoModelConfig(
+            # proposal network allows for significantly smaller sdf/color network
+            sdf_field=SDFFieldConfig(
+                use_grid_feature=True,
+                num_layers=8,
+                num_layers_color=4,
+                hidden_dim=512,
+                bias=0.5,
+                beta_init=0.8,
+                use_appearance_embedding=True,
+            ),
+            background_model="none",
+            eval_num_rays_per_chunk=2048,
+        ),
+    ),
+    optimizers={
+        "proposal_networks": {
+            "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-15),
+            "scheduler": MultiStepSchedulerConfig(max_steps=100000),
+        },
+        "fields": {
+            "optimizer": AdamOptimizerConfig(lr=1e-3, eps=1e-15),
+            "scheduler": CosineDecaySchedulerConfig(warm_up_end=500, learning_rate_alpha=0.05, max_steps=100000),
+        },
+        "field_background": {
+            "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-15),
+            "scheduler": CosineDecaySchedulerConfig(warm_up_end=500, learning_rate_alpha=0.05, max_steps=100000),
         },
     },
     viewer=ViewerConfig(num_rays_per_chunk=1 << 15),
