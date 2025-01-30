@@ -108,6 +108,8 @@ class SurfaceModelConfig(ModelConfig):
     """whether to use near and far collider from command line"""
     scene_contraction_norm: Literal["inf", "l2"] = "inf"
     """Which norm to use for the scene contraction."""
+    color_loss: bool = False
+    """Projecting mlp output to grayscale in rgb loss when input is grayscale"""
 
 
 class SurfaceModel(Model):
@@ -347,6 +349,18 @@ class SurfaceModel(Model):
             pred_accumulation=outputs["accumulation"],
             gt_image=image,
         )
+
+        # color loss
+        if self.config.color_loss:
+            # convert output to grayscale if input image is grayscale
+            grayscale = batch["is_gray"][:, 0]
+            if grayscale.any():  # https://openaccess.thecvf.com/content_cvpr_2017/papers/Nguyen_Why_You_Should_CVPR_2017_paper.pdf
+                rgb2gray = image[grayscale][:, 0] * 0.2126 + \
+                           image[grayscale][:, 1] * 0.7152 + \
+                           image[grayscale][:, 2] * 0.0722
+
+                image[grayscale] = rgb2gray.unsqueeze(-1)
+
         loss_dict["rgb_loss"] = self.rgb_loss(image, pred_image)
         if self.training:
             # eikonal loss
