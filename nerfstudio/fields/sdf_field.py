@@ -426,6 +426,53 @@ class SDFField(Field):
         sdf, _ = torch.split(hidden_output, [1, self.config.geo_feat_dim], dim=-1)
         return sdf
 
+    def set_numerical_gradients_delta(self, delta: float) -> None:
+        """Set the delta value for numerical gradient."""
+        self.numerical_gradients_delta = delta
+
+    def gradient(self, x, skip_spatial_distortion=False, return_sdf=False):
+        """compute the gradient of the ray"""
+        if self.spatial_distortion is not None and not skip_spatial_distortion:
+            x = self.spatial_distortion(x)
+
+        # compute gradient in contracted space
+        if self.config.use_numerical_gradients:
+            # https://github.com/bennyguo/instant-nsr-pl/blob/main/models/geometry.py#L173
+            delta = self.numerical_gradients_delta
+            points = torch.stack(
+                [
+                    x + torch.as_tensor([delta, 0.0, 0.0]).to(x),
+                    x + torch.as_tensor([-delta, 0.0, 0.0]).to(x),
+                    x + torch.as_tensor([0.0, delta, 0.0]).to(x),
+                    x + torch.as_tensor([0.0, -delta, 0.0]).to(x),
+                    x + torch.as_tensor([0.0, 0.0, delta]).to(x),
+                    x + torch.as_tensor([0.0, 0.0, -delta]).to(x),
+                ],
+                dim=0,
+            )
+
+            points_sdf = self.forward_geonetwork(points.view(-1, 3))[..., 0].view(6, *x.shape[:-1])
+            gradients = torch.stack(
+                [
+                    0.5 * (points_sdf[0] - points_sdf[1]) / delta,
+                    0.5 * (points_sdf[2] - points_sdf[3]) / delta,
+                    0.5 * (points_sdf[4] - points_sdf[5]) / delta,
+                ],
+                dim=-1,
+            )
+        else:
+            x.requires_grad_(True)
+
+            y = self.forward_geonetwork(x)[:, :1]
+            d_output = torch.ones_like(y, requires_grad=False, device=y.device)
+            gradients = torch.autograd.grad(
+                outputs=y, inputs=x, grad_outputs=d_output, create_graph=True, retain_graph=True, only_inputs=True
+            )[0]
+        if not return_sdf:
+            return gradients
+        else:
+            return gradients, points_sdf
+
     def get_alpha(
         self,
         ray_samples: RaySamples,
