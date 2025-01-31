@@ -305,6 +305,10 @@ class PixelSampler:
         collated_batch = {
             key: value[c, y, x] for key, value in batch.items() if key != "image_idx" and value is not None
         }
+
+        if "sparse_sfm_points" in batch:
+            collated_batch["sparse_sfm_points"] = batch["sparse_sfm_points"].images[c[0]]
+
         assert collated_batch["image"].shape[0] == num_rays_per_batch
 
         # Needed to correct the random indices to their actual camera idx locations.
@@ -383,7 +387,7 @@ class PixelSampler:
         collated_batch = {
             key: value[c, y, x]
             for key, value in batch.items()
-            if key not in ("image_idx", "image", "mask", "depth_image", "semantics", "is_gray") and value is not None
+            if key not in ("image_idx", "image", "mask", "depth_image", "semantics", "is_gray", "sparse_sfm_points") and value is not None
         }
 
         collated_batch["image"] = torch.cat(all_images, dim=0)
@@ -393,6 +397,9 @@ class PixelSampler:
             collated_batch["semantics"] = torch.cat(all_semantic_images, dim=0)
         if "is_gray" in batch:
             collated_batch["is_gray"] = torch.cat(all_grays, dim=0)
+
+        if "sparse_sfm_points" in batch and batch["sparse_sfm_points"]:
+            collated_batch["sparse_sfm_points"] = random.choice(batch["sparse_sfm_points"].images)
 
         assert collated_batch["image"].shape[0] == num_rays_per_batch
 

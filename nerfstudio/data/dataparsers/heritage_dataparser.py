@@ -523,10 +523,7 @@ class Heritage(DataParser):
 
         metadata = {
             "include_mono_prior": self.config.include_mono_prior,
-            "depth_filenames": None,
-            "normal_filenames": None,
-            "camera_to_worlds": None,
-            "transform": None,
+            "sparse_pts": sparse_pts
         }
 
         if self.config.include_semantics:
@@ -545,9 +542,6 @@ class Heritage(DataParser):
             dataparser_transform=transform_matrix,
             dataparser_scale=scale,
             metadata=metadata,
-            # metadata={
-            #     "masks": {"sparse_pts": sparse_pts}}
-            # },
         )
 
         return dataparser_outputs

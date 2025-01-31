@@ -25,6 +25,7 @@ import torch
 import torch.utils.data
 
 from nerfstudio.cameras.cameras import Cameras
+from nerfstudio.utils.images import BasicImages
 
 NERFSTUDIO_COLLATE_ERR_MSG_FORMAT = (
     "default_collate: batch must contain tensors, numpy arrays, numbers, dicts, lists or anything in {}; found {}"
@@ -209,6 +210,13 @@ def nerfstudio_collate(batch: Any, extra_mappings: Union[Dict[type, Callable], N
             times=times,
             metadata=metadata,
         )
+
+    elif isinstance(elem, BasicImages):
+        assert all((isinstance(elem, BasicImages) for elem in batch))
+        all_images = []
+        for images in batch:
+            all_images.extend(images.images)
+        return BasicImages(all_images)
 
     for type_key in extra_mappings:
         if isinstance(elem, type_key):

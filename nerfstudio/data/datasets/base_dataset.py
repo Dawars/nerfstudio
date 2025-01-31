@@ -33,6 +33,7 @@ from torch.utils.data import Dataset
 from nerfstudio.cameras.cameras import Cameras
 from nerfstudio.data.dataparsers.base_dataparser import DataparserOutputs
 from nerfstudio.data.utils.data_utils import get_image_mask_tensor_from_path, get_semantics_and_mask_tensors_from_path
+from nerfstudio.utils.images import BasicImages
 
 
 class InputDataset(Dataset):
@@ -156,9 +157,13 @@ class InputDataset(Dataset):
         Args:
             image_idx: The image index in the dataset.
         """
+        metadata = {}
+        image_idx = data["image_idx"]
+        if "sparse_pts" in self.metadata:
+            metadata["sparse_sfm_points"] = BasicImages([self.metadata["sparse_pts"][image_idx]])  # in a list to be able to collate batch
         if self.semantics:
             # handle mask
-            filepath = self.semantics.filenames[data["image_idx"]]
+            filepath = self.semantics.filenames[image_idx]
             semantic_label, mask = get_semantics_and_mask_tensors_from_path(
                 filepath=filepath, mask_indices=self.mask_indices, scale_factor=self.scale_factor
             )
@@ -168,8 +173,7 @@ class InputDataset(Dataset):
                 f"Mask and image have different shapes. Got {mask.shape[:2]} and {data['image'].shape[:2]}"
             )
             del data
-            return {"mask": mask, "semantics": semantic_label}
-        return {}
+        return metadata
 
     def __getitem__(self, image_idx: int) -> Dict:
         data = self.get_data(image_idx)

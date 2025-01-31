@@ -375,6 +375,13 @@ class SurfaceModel(Model):
                 loss_dict[f"fg_mask_loss"] = (
                         self.sky_loss(weights_sum, fg_label) * self.config.fg_mask_loss_mult
                 )
+            # sparse points sdf loss
+            if "sparse_sfm_points" in batch and self.config.sparse_points_sdf_loss_mult > 0.0:
+                sparse_sfm_points = batch["sparse_sfm_points"].to(self.device)  # Nx3
+                sparse_sfm_points_sdf = self.field.forward_geonetwork(sparse_sfm_points[:, :3])[:, 0].contiguous()
+                loss_dict["sparse_sfm_points_sdf_loss"] = (
+                        torch.mean(torch.abs(sparse_sfm_points_sdf)) * self.config.sparse_points_sdf_loss_mult
+                )
 
             # monocular normal loss
             if "normal" in batch and self.config.mono_normal_loss_mult > 0.0:
