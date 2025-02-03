@@ -172,7 +172,9 @@ class InputDataset(Dataset):
             assert mask.shape[:2] == data["image"].shape[:2], (
                 f"Mask and image have different shapes. Got {mask.shape[:2]} and {data['image'].shape[:2]}"
             )
-            del data
+            metadata.update({"mask": mask, "semantics": semantic_label})
+
+        del data
         return metadata
 
     def __getitem__(self, image_idx: int) -> Dict:
