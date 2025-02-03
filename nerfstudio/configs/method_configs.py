@@ -32,6 +32,7 @@ from nerfstudio.data.datamanagers.parallel_datamanager import ParallelDataManage
 from nerfstudio.data.datamanagers.random_cameras_datamanager import RandomCamerasDataManagerConfig
 from nerfstudio.data.dataparsers.blender_dataparser import BlenderDataParserConfig
 from nerfstudio.data.dataparsers.dnerf_dataparser import DNeRFDataParserConfig
+from nerfstudio.data.dataparsers.heritage_dataparser import HeritageDataParserConfig
 from nerfstudio.data.dataparsers.instant_ngp_dataparser import InstantNGPDataParserConfig
 from nerfstudio.data.dataparsers.nerfstudio_dataparser import NerfstudioDataParserConfig
 from nerfstudio.data.dataparsers.phototourism_dataparser import PhototourismDataParserConfig
@@ -64,6 +65,7 @@ from nerfstudio.models.semantic_nerfw import SemanticNerfWModelConfig
 from nerfstudio.models.splatfacto import SplatfactoModelConfig
 from nerfstudio.models.tensorf import TensoRFModelConfig
 from nerfstudio.models.vanilla_nerf import NeRFModel, VanillaModelConfig
+from nerfstudio.models.vanilla_nerfw import NeRFWModel, NeRFWModelConfig
 from nerfstudio.pipelines.base_pipeline import VanillaPipelineConfig
 from nerfstudio.pipelines.dynamic_batch import DynamicBatchPipelineConfig
 from nerfstudio.plugins.registry import discover_methods
@@ -78,6 +80,7 @@ descriptions = {
     "mipnerf": "High quality model for bounded scenes. (slow)",
     "semantic-nerfw": "Predicts semantic segmentations and filters out transient objects.",
     "vanilla-nerf": "Original NeRF model. (slow)",
+    "vanilla-nerfw": "Original NeRFW model. (slow)",
     "tensorf": "tensorf",
     "dnerf": "Dynamic-NeRF model. (slow)",
     "phototourism": "Uses the Phototourism data.",
@@ -376,6 +379,25 @@ method_configs["vanilla-nerf"] = TrainerConfig(
         "temporal_distortion": {
             "optimizer": RAdamOptimizerConfig(lr=5e-4, eps=1e-08),
             "scheduler": None,
+        },
+    },
+)
+
+method_configs["vanilla-nerfw"] = TrainerConfig(
+    method_name="vanilla-nerfw",
+    max_num_iterations=300000,
+    pipeline=VanillaPipelineConfig(
+        datamanager=VanillaDataManagerConfig(
+            dataparser=HeritageDataParserConfig(),
+            train_num_rays_per_batch=2048,
+            eval_num_rays_per_batch=2048,
+        ),
+        model=NeRFWModelConfig(_target=NeRFWModel),
+    ),
+    optimizers={
+        "fields": {
+            "optimizer": RAdamOptimizerConfig(lr=1e-2, eps=0),
+            "scheduler": ExponentialDecaySchedulerConfig(lr_final=1e-4, max_steps=300000),
         },
     },
 )
