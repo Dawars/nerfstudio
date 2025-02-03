@@ -157,7 +157,7 @@ class NeRFWField(Field):
         d = self.direction_encoding(directions)
 
         outputs_shape = ray_samples.frustums.directions.shape[:-1]
-        print(outputs_shape)
+
         # appearance
         embedded_appearance = None
         if self.embedding_appearance is not None:
