@@ -396,8 +396,8 @@ method_configs["vanilla-nerfw"] = TrainerConfig(
     ),
     optimizers={
         "fields": {
-            "optimizer": RAdamOptimizerConfig(lr=1e-2, eps=0),
-            "scheduler": ExponentialDecaySchedulerConfig(lr_final=1e-4, max_steps=300000),
+            "optimizer": RAdamOptimizerConfig(lr=1e-3, eps=0),
+            "scheduler": ExponentialDecaySchedulerConfig(lr_final=1e-5, max_steps=300000),
         },
     },
 )
