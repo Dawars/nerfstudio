@@ -93,20 +93,21 @@ class NeRFWField(Field):
             num_layers=base_mlp_num_layers,
             layer_width=base_mlp_layer_width,
             skip_connections=skip_connections,
-            out_dim=1 + self.geo_feat_dim,
+            # out_dim=1 + self.geo_feat_dim,
             out_activation=nn.ReLU(),
             # implementation=implementation,
         )
+        # Linear NN layer with activation
         self.field_output_density = DensityFieldHead(in_dim=self.mlp_base.get_out_dim())
 
         self.mlp_color_head = MLP(
-            in_dim=self.geo_feat_dim + self.direction_encoding.get_out_dim() + self.appearance_embedding_dim,
+            in_dim=self.mlp_base.get_out_dim() + self.direction_encoding.get_out_dim() + self.appearance_embedding_dim,
             num_layers=num_layers_color,
             layer_width=hidden_dim_color,
             out_activation=nn.ReLU(),
-            out_dim=3,
             # implementation=implementation,
         )
+        self.field_output_color = RGBFieldHead(in_dim=self.mlp_color_head.get_out_dim())
 
 
         # transients
@@ -114,10 +115,10 @@ class NeRFWField(Field):
             self.transient_embedding_dim = transient_embedding_dim
             self.embedding_transient = nn.Embedding(self.num_images, self.transient_embedding_dim)
             self.mlp_transient = MLP(
-                in_dim=base_mlp_layer_width + self.transient_embedding_dim,
+                in_dim=self.mlp_base.get_out_dim() + self.transient_embedding_dim,
                 num_layers=num_layers_transient,
                 layer_width=hidden_dim_transient,
-                out_dim=hidden_dim_transient,
+                # out_dim=hidden_dim_transient,
                 activation=nn.ReLU(),
                 out_activation=None,
                 # implementation=implementation,
@@ -138,10 +139,8 @@ class NeRFWField(Field):
             if self.spatial_distortion is not None:
                 positions = self.spatial_distortion(positions)
             encoded_xyz = self.position_encoding(positions)
-        h = self.mlp_base(encoded_xyz)
-        density_before_activation, base_mlp_out = torch.split(h, [1, self.geo_feat_dim], dim=-1)
-
-        density = self.field_output_density(h)
+        base_mlp_out = self.mlp_base(encoded_xyz)
+        density = self.field_output_density(base_mlp_out)
         return density, base_mlp_out
 
     def get_outputs(
@@ -187,7 +186,7 @@ class NeRFWField(Field):
             outputs[FieldHeadNames.UNCERTAINTY] = self.field_head_transient_uncertainty(x)
             outputs[FieldHeadNames.TRANSIENT_RGB] = self.field_head_transient_rgb(x)
             outputs[FieldHeadNames.TRANSIENT_DENSITY] = self.field_head_transient_density(x)
-
+        # TODO: reshape rays
         h = torch.cat(
             [
                 d,
@@ -198,7 +197,7 @@ class NeRFWField(Field):
             ),
             dim=-1,
         )
-        rgb = self.mlp_color_head(h).view(*outputs_shape, -1).to(directions)
-        outputs.update({FieldHeadNames.RGB: rgb})
+        x = self.mlp_color_head(h).view(*outputs_shape, -1).to(directions)
+        outputs[FieldHeadNames.RGB] = self.field_output_color(x)
 
         return outputs

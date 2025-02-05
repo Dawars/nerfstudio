@@ -46,6 +46,19 @@ class NeRFWModelConfig(ModelConfig):
     num_importance_samples: int = 512
     """Number of samples in fine field evaluation"""
 
+    hidden_dim: int = 512
+    """Dimension of hidden layers"""
+    hidden_dim_color: int = 128
+    """Dimension of hidden layers for color network"""
+    appearance_embed_dim: int = 32
+    """Dimension of the appearance embedding."""
+    use_transient_embedding: bool = True
+    """Whether to use an transient embedding."""
+    hidden_dim_transient: int = 128
+    """Dimension of hidden layers for transient network"""
+    transient_embed_dim: int = 16
+    """Dimension of the transient embedding."""
+
     use_gradient_scaling: bool = False
     """Use gradient scaler where the gradients are lower for points closer to the camera."""
     background_color: Literal["random", "last_sample", "black", "white"] = "white"
@@ -93,30 +106,30 @@ class NeRFWModel(Model):
             direction_encoding=direction_encoding,
             use_transient_embedding=False,
             base_mlp_num_layers=8,
-            base_mlp_layer_width=256,
-            geo_feat_dim=256,
+            base_mlp_layer_width=self.config.hidden_dim,
+            geo_feat_dim=self.config.hidden_dim,
             num_layers_color=1,
-            hidden_dim_color=128,
+            hidden_dim_color=self.config.hidden_dim_color,
             num_layers_transient=4,
-            hidden_dim_transient=128,
-            appearance_embedding_dim=48,
-            transient_embedding_dim=16,
+            hidden_dim_transient=self.config.hidden_dim_transient,
+            appearance_embedding_dim=self.config.appearance_embed_dim,
+            transient_embedding_dim=self.config.transient_embed_dim,
         )
 
         self.field_fine = NeRFWField(
             num_images=self.num_train_data,
             position_encoding=position_encoding,
             direction_encoding=direction_encoding,
-            use_transient_embedding=True,
+            use_transient_embedding=self.config.use_transient_embedding,
             base_mlp_num_layers=8,
-            base_mlp_layer_width=256,
-            geo_feat_dim=256,
+            base_mlp_layer_width=self.config.hidden_dim,
+            geo_feat_dim=self.config.hidden_dim,
             num_layers_color=1,
-            hidden_dim_color=128,
+            hidden_dim_color=self.config.hidden_dim_color,
             num_layers_transient=4,
-            hidden_dim_transient=128,
-            appearance_embedding_dim=48,
-            transient_embedding_dim=16,
+            hidden_dim_transient=self.config.hidden_dim_transient,
+            appearance_embedding_dim=self.config.appearance_embed_dim,
+            transient_embedding_dim=self.config.transient_embed_dim,
         )
 
         # samplers
@@ -140,11 +153,6 @@ class NeRFWModel(Model):
         self.psnr = PeakSignalNoiseRatio(data_range=1.0)
         self.ssim = structural_similarity_index_measure
         self.lpips = LearnedPerceptualImagePatchSimilarity(normalize=True)
-
-        if getattr(self.config, "enable_temporal_distortion", False):
-            params = self.config.temporal_distortion_params
-            kind = params.pop("kind")
-            self.temporal_distortion = kind.to_temporal_distortion(params)
 
     def get_param_groups(self) -> Dict[str, List[Parameter]]:
         param_groups = {}
