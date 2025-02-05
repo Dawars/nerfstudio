@@ -310,13 +310,16 @@ class TimeWriter:
 class WandbWriter(Writer):
     """WandDB Writer Class"""
 
-    def __init__(self, log_dir: Path, experiment_name: str, project_name: str = "nerfstudio-project"):
+    def __init__(self, log_dir: Path, experiment_name: str, id: Optional[str] = None, resume = "never",
+                 project_name: str = "nerfstudio-project"):
         import wandb  # wandb is slow to import, so we only import it if we need it.
 
         wandb.init(
             project=os.environ.get("WANDB_PROJECT", project_name),
             dir=os.environ.get("WANDB_DIR", str(log_dir)),
             name=os.environ.get("WANDB_NAME", experiment_name),
+            id=id,
+            resume=resume,
             reinit=True,
         )
 
