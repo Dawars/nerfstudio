@@ -221,7 +221,12 @@ def setup_event_writer(
         EVENT_WRITERS.append(curr_writer)
         using_event_writer = True
     if is_wandb_enabled:
-        curr_writer = WandbWriter(log_dir=log_dir, experiment_name=experiment_name, project_name=project_name)
+        jobId = os.getenv("SLURM_JOB_ID", "-1")
+        taskId = os.getenv('SLURM_ARRAY_JOB_ID')
+        job_id = int(taskId) if taskId else int(jobId)
+        valid_slurm_job = job_id > -1
+        curr_writer = WandbWriter(log_dir=log_dir, experiment_name=experiment_name, id=str(job_id) if valid_slurm_job else None,
+                         resume="allow" if valid_slurm_job else "never", project_name=project_name)
         EVENT_WRITERS.append(curr_writer)
         using_event_writer = True
     if is_tensorboard_enabled:
