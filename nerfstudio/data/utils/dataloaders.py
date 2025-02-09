@@ -235,6 +235,38 @@ class FixedIndicesEvalDataloader(EvalDataloader):
             return camera, batch
         raise StopIteration
 
+class LoopingEvalDataloader(EvalDataloader):
+    """Dataloader that loops through all indices and restarts from the beginning.
+
+    Args:
+        input_dataset: InputDataset to load data from
+        image_indices: List of image indices to load data from. If None, then use all images.
+        device: Device to load data to
+    """
+
+    def __iter__(self):
+        return self
+
+    def __init__(
+        self,
+        input_dataset: InputDataset,
+        image_indices: Optional[Tuple[int]] = None,
+        device: Union[torch.device, str] = "cpu",
+        **kwargs,
+    ):
+        super().__init__(input_dataset, device, **kwargs)
+        if image_indices is None:
+            self.image_indices = list(range(len(input_dataset)))
+        else:
+            self.image_indices = image_indices
+        self.count = 0
+        self.num_images = len(self.image_indices)
+
+    def __next__(self):
+        image_idx = self.image_indices[self.count % self.num_images]
+        ray_bundle, batch = self.get_data_from_image_idx(image_idx)
+        self.count += 1
+        return ray_bundle, batch
 
 class RandIndicesEvalDataloader(EvalDataloader):
     """Dataloader that returns random images.

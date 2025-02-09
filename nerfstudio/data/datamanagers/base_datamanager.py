@@ -56,7 +56,7 @@ from nerfstudio.data.dataparsers.base_dataparser import DataparserOutputs
 from nerfstudio.data.dataparsers.blender_dataparser import BlenderDataParserConfig
 from nerfstudio.data.datasets.base_dataset import InputDataset
 from nerfstudio.data.pixel_samplers import PatchPixelSamplerConfig, PixelSampler, PixelSamplerConfig
-from nerfstudio.data.utils.dataloaders import CacheDataloader, FixedIndicesEvalDataloader, RandIndicesEvalDataloader
+from nerfstudio.data.utils.dataloaders import CacheDataloader, FixedIndicesEvalDataloader, LoopingEvalDataloader
 from nerfstudio.data.utils.nerfstudio_collate import nerfstudio_collate
 from nerfstudio.engine.callbacks import TrainingCallback, TrainingCallbackAttributes
 from nerfstudio.model_components.ray_generators import RayGenerator
@@ -521,10 +521,12 @@ class VanillaDataManager(DataManager, Generic[TDataset]):
             device=self.device,
             num_workers=self.world_size * 4,
         )
-        self.eval_dataloader = RandIndicesEvalDataloader(
+        self.eval_dataloader = LoopingEvalDataloader(
             input_dataset=self.eval_dataset,
+            image_indices=self.config.eval_image_indices,
             device=self.device,
-            num_workers=self.world_size * 4,
+            num_workers=self.world_size * 2,
+            shuffle=False,
         )
 
     def next_train(self, step: int) -> Tuple[RayBundle, Dict]:
