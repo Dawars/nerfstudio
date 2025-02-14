@@ -264,9 +264,9 @@ class LoopingEvalDataloader(EvalDataloader):
 
     def __next__(self):
         image_idx = self.image_indices[self.count % self.num_images]
-        ray_bundle, batch = self.get_data_from_image_idx(image_idx)
+        camera, batch = self.get_camera(image_idx)
         self.count += 1
-        return ray_bundle, batch
+        return camera, batch
 
 class RandIndicesEvalDataloader(EvalDataloader):
     """Dataloader that returns random images.

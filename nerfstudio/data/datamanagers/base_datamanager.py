@@ -325,7 +325,7 @@ class VanillaDataManagerConfig(DataManagerConfig):
     eval_num_times_to_repeat_images: int = -1
     """When not evaluating on all images, number of iterations before picking
     new images. If -1, never pick new images."""
-    eval_image_indices: Optional[Tuple[int, ...]] = (0,)
+    eval_image_indices: Optional[Tuple[int, ...]] = None
     """Specifies the image indices to use during eval; if None, uses all."""
     collate_fn: Callable[[Any], Any] = cast(Any, staticmethod(nerfstudio_collate))
     """Specifies the collate function to use for the train and eval dataloaders."""
