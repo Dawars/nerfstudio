@@ -455,7 +455,7 @@ class ExportMarchingCubesMesh(Exporter):
             & (np.linalg.norm(vert3, keepdims=True, axis=1) >= 0.98**2)
         )
         multi_res_mesh.update_faces(~face_mask[:, 0])
-        multi_res_mesh.remove_degenerate_faces()
+        multi_res_mesh.update_faces(multi_res_mesh.nondegenerate_faces())
         multi_res_mesh.remove_unreferenced_vertices()
 
 
