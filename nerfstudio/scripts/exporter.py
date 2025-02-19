@@ -442,6 +442,23 @@ class ExportMarchingCubesMesh(Exporter):
             isosurface_threshold=self.isosurface_threshold,
             coarse_mask=None,
         )
+
+        # bounding_box: SceneBox = pipeline.datamanager.train_dataset.scene_box
+        # remove faces outside unit sphere?
+        vert1 = multi_res_mesh.vertices[multi_res_mesh.faces[:, 0]]
+        vert2 = multi_res_mesh.vertices[multi_res_mesh.faces[:, 1]]
+        vert3 = multi_res_mesh.vertices[multi_res_mesh.faces[:, 2]]
+
+        face_mask = (
+            (np.linalg.norm(vert1, keepdims=True, axis=1) >= 0.98**2)
+            & (np.linalg.norm(vert2, keepdims=True, axis=1) >= 0.98**2)
+            & (np.linalg.norm(vert3, keepdims=True, axis=1) >= 0.98**2)
+        )
+        multi_res_mesh.update_faces(~face_mask[:, 0])
+        multi_res_mesh.remove_degenerate_faces()
+        multi_res_mesh.remove_unreferenced_vertices()
+
+
         filename = self.output_dir / "sdf_marching_cubes_mesh.ply"
         multi_res_mesh.export(filename)
 
