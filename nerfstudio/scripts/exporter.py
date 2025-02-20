@@ -440,7 +440,7 @@ class ExportMarchingCubesMesh(Exporter):
             bounding_box_min=self.bounding_box_min,
             bounding_box_max=self.bounding_box_max,
             isosurface_threshold=self.isosurface_threshold,
-            coarse_mask=None,
+            coarse_mask=pipeline.datamanager.train_dataset.scene_box.coarse_binary_gird,
         )
 
         # bounding_box: SceneBox = pipeline.datamanager.train_dataset.scene_box
