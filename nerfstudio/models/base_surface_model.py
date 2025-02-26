@@ -294,15 +294,16 @@ class SurfaceModel(Model):
             depth_bg = self.renderer_depth(weights=weights_bg, ray_samples=ray_samples_bg)
             accumulation_bg = self.renderer_accumulation(weights=weights_bg)
 
-            # merge background color to foregound color
-            rgb = rgb + bg_transmittance * rgb_bg
-
             bg_outputs = {
+                "rgb_no_bg": rgb,
                 "bg_rgb": rgb_bg,
                 "bg_accumulation": accumulation_bg,
                 "bg_depth": depth_bg,
                 "bg_weights": weights_bg,
             }
+
+            # merge background color to foregound color
+            rgb = rgb + bg_transmittance * rgb_bg
         else:
             bg_outputs = {}
 
@@ -469,6 +470,8 @@ class SurfaceModel(Model):
             "depth": combined_depth,
             "normal": combined_normal,
         }
+        if "rgb_no_bg" in outputs:
+            images_dict["rgb_no_bg"] = outputs["rgb_no_bg"]
 
         # Switch images from [H, W, C] to [1, C, H, W] for metrics computations
         image = torch.moveaxis(image, -1, 0)[None, ...]
