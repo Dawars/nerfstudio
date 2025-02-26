@@ -18,6 +18,7 @@ Dataset.
 
 from __future__ import annotations
 
+import io
 from copy import deepcopy
 from pathlib import Path
 from typing import Dict, List, Literal
@@ -32,7 +33,7 @@ from torch.utils.data import Dataset
 
 from nerfstudio.cameras.cameras import Cameras
 from nerfstudio.data.dataparsers.base_dataparser import DataparserOutputs
-from nerfstudio.data.utils.data_utils import get_image_mask_tensor_from_path, get_semantics_and_mask_tensors_from_path
+from nerfstudio.data.utils.data_utils import get_image_mask_tensor_from_path, get_semantics_and_mask_tensors_from_path, pil_to_numpy
 from nerfstudio.utils.images import BasicImages
 
 
@@ -47,7 +48,9 @@ class InputDataset(Dataset):
     exclude_batch_keys_from_device: List[str] = ["image", "mask"]
     cameras: Cameras
 
-    def __init__(self, dataparser_outputs: DataparserOutputs, scale_factor: float = 1.0):
+    def __init__(
+        self, dataparser_outputs: DataparserOutputs, scale_factor: float = 1.0, cache_compressed_images: bool = False
+    ):
         super().__init__()
         self._dataparser_outputs = dataparser_outputs
         self.scale_factor = scale_factor
@@ -56,6 +59,25 @@ class InputDataset(Dataset):
         self.cameras = deepcopy(dataparser_outputs.cameras)
         self.cameras.rescale_output_resolution(scaling_factor=scale_factor)
         self.mask_color = dataparser_outputs.metadata.get("mask_color", None)
+        self.cache_compressed_images = cache_compressed_images
+        """If cache_compressed_images == True, cache all the image files into RAM in their compressed form (jpeg, png, etc. but not as pytorch tensors)"""
+        if cache_compressed_images:
+            self.binary_images = []
+            self.binary_masks = []
+            for image_filename in self._dataparser_outputs.image_filenames:
+                with open(image_filename, "rb") as f:
+                    self.binary_images.append(io.BytesIO(f.read()))
+            if self._dataparser_outputs.mask_filenames is not None:
+                for mask_filename in self._dataparser_outputs.mask_filenames:
+                    if mask_filename.suffix == ".npy":
+                        mask = np.load(mask_filename)  # (H, W)
+                        pil_mask = Image.fromarray(mask, 'L')
+                        buf = io.BytesIO()
+                        pil_mask.save(buf, format='PNG')
+                        self.binary_masks.append(buf)
+                    else:
+                        with open(mask_filename, "rb") as f:
+                            self.binary_masks.append(io.BytesIO(f.read()))
         self.semantics = self.metadata.get("semantics")
         self.mask_indices = torch.tensor(
             [self.semantics.classes.index(mask_class) for mask_class in self.semantics.mask_classes]
@@ -71,12 +93,15 @@ class InputDataset(Dataset):
             image_idx: The image index in the dataset.
         """
         image_filename = self._dataparser_outputs.image_filenames[image_idx]
-        pil_image = Image.open(image_filename)
+        if self.cache_compressed_images:
+            pil_image = Image.open(self.binary_images[image_idx])
+        else:
+            pil_image = Image.open(image_filename)
         if self.scale_factor != 1.0:
             width, height = pil_image.size
             newsize = (int(width * self.scale_factor), int(height * self.scale_factor))
             pil_image = pil_image.resize(newsize, resample=Image.Resampling.BILINEAR)
-        image = np.array(pil_image, dtype="uint8")  # shape is (h, w) or (h, w, 3 or 4)
+        image = pil_to_numpy(pil_image)  # shape is (h, w) or (h, w, 3 or 4)
         if len(image.shape) == 3 and np.allclose(image[..., 0], image[..., 1]) and np.allclose(image[..., 0],
                                                                                                image[..., 2]):
             image = image[..., :1]
@@ -93,7 +118,9 @@ class InputDataset(Dataset):
         Args:
             image_idx: The image index in the dataset.
         """
-        image = torch.from_numpy(self.get_numpy_image(image_idx).astype("float32") / 255.0)
+        image = self.get_numpy_image(image_idx)
+        image = image / np.float32(255)
+        image = torch.from_numpy(image)
         if self._dataparser_outputs.alpha_color is not None and image.shape[-1] == 4:
             assert (self._dataparser_outputs.alpha_color >= 0).all() and (
                 self._dataparser_outputs.alpha_color <= 1
@@ -107,7 +134,9 @@ class InputDataset(Dataset):
         Args:
             image_idx: The image index in the dataset.
         """
-        image = torch.from_numpy(self.get_numpy_image(image_idx))
+        image = torch.from_numpy(
+            self.get_numpy_image(image_idx)
+        )  # removed astype(np.uint8) because get_numpy_image returns uint8
         if self._dataparser_outputs.alpha_color is not None and image.shape[-1] == 4:
             assert (self._dataparser_outputs.alpha_color >= 0).all() and (
                 self._dataparser_outputs.alpha_color <= 1
@@ -138,7 +167,10 @@ class InputDataset(Dataset):
             image = image.tile(1, 1, 3)
         data["image"] = image
         if self._dataparser_outputs.mask_filenames is not None:
-            mask_filepath = self._dataparser_outputs.mask_filenames[image_idx]
+            if self.cache_compressed_images:
+                mask_filepath = self.binary_masks[image_idx]
+            else:
+                mask_filepath = self._dataparser_outputs.mask_filenames[image_idx]
             data["mask"] = get_image_mask_tensor_from_path(filepath=mask_filepath, scale_factor=self.scale_factor)
             assert data["mask"].shape[:2] == data["image"].shape[:2], (
                 f"Mask and image have different shapes. Got {data['mask'].shape[:2]} and {data['image'].shape[:2]}"
