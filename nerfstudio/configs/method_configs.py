@@ -960,14 +960,14 @@ method_configs["neus-facto-bigmlp"] = TrainerConfig(
     max_num_iterations=100001,
     mixed_precision=False,
     pipeline=VanillaPipelineConfig(
-        datamanager=VanillaDataManagerConfig(
-            dataparser=SDFStudioDataParserConfig(),
+        datamanager=ParallelDataManagerConfig(
+            dataparser=NerfstudioDataParserConfig(),
             train_num_images_to_sample_from=20,
             train_num_times_to_repeat_images=100,
             eval_num_images_to_sample_from=20,
             eval_num_times_to_repeat_images=100,
-            train_num_rays_per_batch=2048,
-            eval_num_rays_per_batch=2048,
+            train_num_rays_per_batch=8192,
+            eval_num_rays_per_batch=4096,
         ),
         model=NeuSFactoModelConfig(
             # proposal network allows for significantly smaller sdf/color network
