@@ -33,7 +33,8 @@ from nerfstudio.field_components.spatial_distortions import SceneContraction
 from nerfstudio.fields.nerfacto_field import NerfactoField
 from nerfstudio.fields.sdf_field import SDFFieldConfig
 from nerfstudio.fields.vanilla_nerf_field import NeRFField
-from nerfstudio.model_components.losses import L1Loss, MSELoss, ScaleAndShiftInvariantLoss, monosdf_normal_loss
+from nerfstudio.model_components.losses import (L1Loss, MSELoss, ScaleAndShiftInvariantLoss, SensorDepthLoss,
+                                                monosdf_normal_loss)
 from nerfstudio.model_components.ray_samplers import LinearDisparitySampler
 from nerfstudio.model_components.renderers import AccumulationRenderer, DepthRenderer, RGBRenderer, SemanticRenderer
 from nerfstudio.model_components.scene_colliders import AABBBoxCollider, NearFarCollider, SphereCollider
@@ -210,7 +211,7 @@ class SurfaceModel(Model):
         # self.patch_loss = MultiViewLoss(
         #     patch_size=self.config.patch_size, topk=self.config.topk, min_patch_variance=self.config.min_patch_variance
         # )
-        # self.sensor_depth_loss = SensorDepthLoss(truncation=self.config.sensor_depth_truncation)
+        self.sensor_depth_loss = SensorDepthLoss(truncation=self.config.sensor_depth_truncation)
 
         # metrics
         from torchmetrics.functional import structural_similarity_index_measure
@@ -402,6 +403,17 @@ class SurfaceModel(Model):
                     self.depth_loss(depth_pred.reshape(1, 32, -1), (depth_gt * 50 + 0.5).reshape(1, 32, -1), mask)
                     * self.config.mono_depth_loss_mult
                 )
+            # sensor depth loss
+            if "sensor_depth" in batch and (
+                    self.config.sensor_depth_l1_loss_mult > 0.0
+                    or self.config.sensor_depth_freespace_loss_mult > 0.0
+                    or self.config.sensor_depth_sdf_loss_mult > 0.0
+            ):
+                l1_loss, free_space_loss, sdf_loss = self.sensor_depth_loss(batch, outputs)
+
+                loss_dict["sensor_l1_loss"] = l1_loss * self.config.sensor_depth_l1_loss_mult
+                loss_dict["sensor_freespace_loss"] = free_space_loss * self.config.sensor_depth_freespace_loss_mult
+                loss_dict["sensor_sdf_loss"] = sdf_loss * self.config.sensor_depth_sdf_loss_mult
 
         return loss_dict
 

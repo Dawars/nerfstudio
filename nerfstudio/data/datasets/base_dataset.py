@@ -33,7 +33,7 @@ from torch.utils.data import Dataset
 
 from nerfstudio.cameras.cameras import Cameras
 from nerfstudio.data.dataparsers.base_dataparser import DataparserOutputs
-from nerfstudio.data.utils.data_utils import get_image_mask_tensor_from_path, get_semantics_and_mask_tensors_from_path, pil_to_numpy
+from nerfstudio.data.utils.data_utils import get_image_mask_tensor_from_path, get_depth_image_from_path, get_semantics_and_mask_tensors_from_path, pil_to_numpy
 from nerfstudio.utils.images import BasicImages
 
 
@@ -191,6 +191,7 @@ class InputDataset(Dataset):
         """
         metadata = {}
         image_idx = data["image_idx"]
+        height, width, c = data["image"].shape
         if "sparse_pts" in self.metadata:
             metadata["sparse_sfm_points"] = BasicImages([self.metadata["sparse_pts"][image_idx]])  # in a list to be able to collate batch
         if self.semantics:
@@ -206,6 +207,16 @@ class InputDataset(Dataset):
             )
             metadata.update({"mask": mask, "semantics": semantic_label})
 
+        if "sensor_filenames" in self.metadata:
+            sensor_filepath = self.metadata["sensor_filenames"][image_idx]
+
+            # Scale depth images to meter units and also by scaling applied to cameras
+            scale_factor = self.metadata["depth_unit_scale_factor"] * self._dataparser_outputs.dataparser_scale
+            sensor_image = get_depth_image_from_path(
+                filepath=sensor_filepath, height=height, width=width, scale_factor=scale_factor
+            )
+
+            metadata["sensor_depth"] = sensor_image  # [W, H, 1] ??
         del data
         return metadata
 

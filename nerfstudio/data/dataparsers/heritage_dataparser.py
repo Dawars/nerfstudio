@@ -55,6 +55,10 @@ class HeritageDataParserConfig(DataParserConfig):
     """Directory specifying location of data."""
     include_mono_prior: bool = False
     """whether or not to include loading of normal """
+    include_sensor_depth: bool = False
+    """whether or not to include loading of scaled depth """
+    sensor_depth_dir: str = "sensor_depth"
+    "Subdir of model where sensor depth data is located"
     scale_factor: float = 3.0
     """How much to scale the camera origins by."""
     alpha_color: str = "white"
@@ -319,6 +323,7 @@ class Heritage(DataParser):
         image_filenames = []
         mask_filenames = []
         semantic_filenames = []
+        sensor_filenames = []
         sparse_pts = []
 
         for filename in file_list:
@@ -346,8 +351,9 @@ class Heritage(DataParser):
             semantic_filenames.append(self.data / "semantic_maps" / img.name.replace(".jpg", ".npz"))
             # if self.config.include_mono_prior:
             #     depth_filenames.append(self.data / "depth" / img.name.replace(".jpg", self.config.depth_extension))
-            #     sensor_filenames.append(self.data / "dense" / "stereo" / "depth_maps" / img.name.replace(".jpg", ".jpg.geometric.bin"))
             #     normal_filenames.append(self.data / "normal" / img.name.replace(".jpg", ".npy"))
+            if self.config.include_sensor_depth:
+                sensor_filenames.append(self.data / self.config.sensor_depth_dir / img.name.replace(".jpg", ".npy"))
 
             # load sparse 3d points for each view
             # visualize pts3d for each image
@@ -518,8 +524,8 @@ class Heritage(DataParser):
         # if self.config.include_mono_prior:
         #     depth_filenames = [depth_filenames[i] for i in indices]
         #     normal_filenames = [normal_filenames[i] for i in indices]
-        # if self.config.include_sensor_depth:
-        #     sensor_filenames = [sensor_filenames[i] for i in indices]
+        if self.config.include_sensor_depth:
+            sensor_filenames = [sensor_filenames[i] for i in indices]
 
         metadata = {
             "include_mono_prior": self.config.include_mono_prior,
@@ -531,6 +537,9 @@ class Heritage(DataParser):
             semantics = Semantics(filenames=semantic_filenames, classes=classes, colors=None,
                                   mask_classes=transient_objects)
             metadata["semantics"] = semantics
+        if self.config.include_sensor_depth:
+            metadata["sensor_filenames"] = sensor_filenames
+            metadata["depth_unit_scale_factor"] = 1
 
         assert len(cameras) == len(image_filenames)
 
