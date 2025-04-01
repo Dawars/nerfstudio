@@ -306,9 +306,11 @@ class Heritage(DataParser):
         # key point depth
         pts3d_array = torch.ones(max(pts3d.keys()) + 1, 4)
         error_array = torch.ones(max(pts3d.keys()) + 1, 1)
+        pts3d_rgb_array = torch.ones(max(pts3d.keys()) + 1, 3, dtype=torch.uint8)
         for pts_id, pts in track(pts3d.items(), description="create 3D points", transient=True):
             pts3d_array[pts_id, :3] = torch.from_numpy(pts.xyz)
             error_array[pts_id, 0] = torch.from_numpy(pts.error)
+            pts3d_rgb_array[pts_id] = torch.from_numpy(pts.rgb)
 
         # determine mask extension
         mask_ext = ".npy" if list((self.data / "masks").glob("*.npy")) else ".png"
@@ -387,6 +389,7 @@ class Heritage(DataParser):
                    if self.files.loc[i, 'split'] == 'train']
         i_eval = [i for i, filename in enumerate(image_filenames)
                   if self.files.loc[i, 'split'] == 'test']
+        self.i_eval = i_eval
 
         if split == "train":
             indices = i_train
@@ -427,6 +430,8 @@ class Heritage(DataParser):
             pts[:, :3] -= origin
             pts[:, :3] *= scale  # should be the same as pose preprocessing
             pts[:, :3] = pts[:, :3] @ transform_matrix[:3, :3].t() + transform_matrix[:3, 3:].t()
+
+        pts3d_array[:, :3] = ((pts3d_array[:, :3] - origin.float()) * scale)  @ transform_matrix[:3, :3].t() + transform_matrix[:3, 3:].t()
 
         # create occupancy grid from sparse points
         points_ori = []
@@ -529,7 +534,9 @@ class Heritage(DataParser):
 
         metadata = {
             "include_mono_prior": self.config.include_mono_prior,
-            "sparse_pts": sparse_pts
+            "sparse_pts": sparse_pts,
+            "points3D_xyz": pts3d_array[:, :3],
+            "points3D_rgb": pts3d_rgb_array,
         }
 
         if self.config.include_semantics:
@@ -554,3 +561,9 @@ class Heritage(DataParser):
         )
 
         return dataparser_outputs
+
+    def check_in_eval(self, idx):
+        return idx in self.i_eval
+
+    def find_eval_idx(self, idx):
+        return self.i_eval[idx]
