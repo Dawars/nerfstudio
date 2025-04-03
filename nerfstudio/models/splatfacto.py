@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Literal, Optional, Tuple, Type, Union
 
 import torch
+import torch.nn.functional as F
 from gsplat.strategy import DefaultStrategy, MCMCStrategy
 
 try:
@@ -166,7 +167,12 @@ class SplatfactoModelConfig(ModelConfig):
     """Regularization term for opacity in MCMC strategy. Only enabled when using MCMC strategy"""
     mcmc_scale_reg: float = 0.01
     """Regularization term for scale in MCMC strategy. Only enabled when using MCMC strategy"""
-
+    depth_loss_mult: float = 0.0
+    """Depth loss"""
+    depth_loss_disparity: bool = False
+    """Calculate depth loss in disparity space (1/x)"""
+    sky_loss_mult: float = 0.0
+    """Depth loss"""
 
 class SplatfactoModel(Model):
     """Nerfstudio's implementation of Gaussian Splatting
@@ -690,11 +696,40 @@ class SplatfactoModel(Model):
             scale_reg = 0.1 * scale_reg.mean()
         else:
             scale_reg = torch.tensor(0.0).to(self.device)
+        # sky loss
+        if "semantics" in batch and self.config.sky_loss_mult > 0:
+            alpha = outputs["accumulation"]
+            semantics = torch.round(self._downscale_if_required(batch["semantics"])) != 2
+            # sky loss
+            fg_label = semantics.float().to(self.device)  # sky
+            fg_mask_loss = F.l1_loss(alpha, fg_label) * self.config.sky_loss_mult
+        else:
+            fg_mask_loss = torch.tensor(0.0).to(self.device)
 
         loss_dict = {
             "main_loss": (1 - self.config.ssim_lambda) * Ll1 + self.config.ssim_lambda * simloss,
             "scale_reg": scale_reg,
+            "sky_loss": fg_mask_loss,
         }
+        if "sensor_depth" in batch and self.config.depth_loss_mult > 0:
+            depths_gt = batch["sensor_depth"]
+
+            depths_gt = self._downscale_if_required(depths_gt)
+            depths_gt = depths_gt.to(self.device)
+            if depths_gt.shape[-1] > 1:  # has confidence
+                conf = depths_gt[:, :, 1:2]
+                depths_gt = depths_gt[:,:, 0:1]
+            else: # no confidence
+                conf = torch.tensor(1.0).to(self.device)
+            depths = outputs["depth"]
+            if self.config.depth_loss_disparity:
+                # calculate loss in disparity space
+                disp = torch.where(depths > 0.0, 1.0 / depths, torch.zeros_like(depths))
+                disp_gt = torch.where(depths_gt > 0.0, 1.0 / depths_gt, torch.zeros_like(depths_gt))
+                depthloss = torch.mean(F.l1_loss(disp, disp_gt) * conf)
+            else:
+                depthloss = torch.mean(F.l1_loss(depths, depths_gt) * conf)
+            loss_dict["depth_loss"] = depthloss * self.config.depth_loss_mult
 
         # Losses for mcmc
         if self.config.strategy == "mcmc":
