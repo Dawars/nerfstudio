@@ -532,11 +532,15 @@ class Heritage(DataParser):
         if self.config.include_sensor_depth:
             sensor_filenames = [sensor_filenames[i] for i in indices]
 
+        # subsample pcd if too large
+        every_n = 1
+        if len(pts3d_array) > 1_000_000:
+            every_n = 10
         metadata = {
             "include_mono_prior": self.config.include_mono_prior,
             "sparse_pts": sparse_pts,
-            "points3D_xyz": pts3d_array[:, :3],
-            "points3D_rgb": pts3d_rgb_array,
+            "points3D_xyz": pts3d_array[:, :3][::every_n],
+            "points3D_rgb": pts3d_rgb_array[::every_n],
         }
 
         if self.config.include_semantics:
