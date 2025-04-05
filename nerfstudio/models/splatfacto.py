@@ -174,6 +174,8 @@ class SplatfactoModelConfig(ModelConfig):
     """Calculate depth loss in disparity space (1/x)"""
     sky_loss_mult: float = 0.0
     """Depth loss"""
+    color_loss: bool = False
+    """Projecting mlp output to grayscale in rgb loss when input is grayscale"""
 
 class SplatfactoModel(Model):
     """Nerfstudio's implementation of Gaussian Splatting
@@ -678,11 +680,12 @@ class SplatfactoModel(Model):
             pred_img = pred_img * mask
 
         # convert output to grayscale if input image is grayscale
-        # grayscale = batch["is_gray"][:, 0]
-        # rgb2gray = pred_img[grayscale][:, 0] * 0.2989 + \
-        #            pred_img[grayscale][:, 1] * 0.5870 + \
-        #            pred_img[grayscale][:, 2] * 0.1140
-        # pred_img[grayscale] = rgb2gray.unsqueeze(-1)
+        if self.config.color_loss:
+            grayscale = self._downscale_if_required(batch["is_gray"])[:, :, 0] > 0.5
+            rgb2gray = pred_img[grayscale][:, 0] * 0.2989 + \
+                       pred_img[grayscale][:, 1] * 0.5870 + \
+                       pred_img[grayscale][:, 2] * 0.1140
+            pred_img[grayscale] = rgb2gray.unsqueeze(-1)
         Ll1 = torch.abs(gt_img - pred_img).mean()
         simloss = 1 - self.ssim(gt_img.permute(2, 0, 1)[None, ...], pred_img.permute(2, 0, 1)[None, ...])
         if self.config.use_scale_regularization and self.step % 10 == 0:
