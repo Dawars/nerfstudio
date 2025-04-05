@@ -25,6 +25,7 @@ from typing import Dict, List, Literal, Optional, Tuple, Type, Union
 import torch
 import torch.nn.functional as F
 from gsplat.strategy import DefaultStrategy, MCMCStrategy
+from nerfstudio.utils import colormaps
 
 try:
     from gsplat.rendering import rasterization
@@ -777,6 +778,14 @@ class SplatfactoModel(Model):
         Returns:
             A dictionary of metrics.
         """
+
+        acc = colormaps.apply_colormap(outputs["accumulation"])
+
+        # normal = outputs["normal"]
+        # normal = (normal + 1.0) / 2.0
+
+        combined_acc = torch.cat([acc], dim=1)
+
         gt_rgb = self.composite_with_background(self.get_gt_img(batch["image"]), outputs["background"])
         predicted_rgb = outputs["rgb"]
         cc_rgb = None
@@ -808,6 +817,41 @@ class SplatfactoModel(Model):
             metrics_dict["cc_ssim"] = float(cc_ssim)
             metrics_dict["cc_lpips"] = float(cc_lpips)
 
-        images_dict = {"img": combined_rgb}
+        # if "normal" in batch:
+        #     normal_gt = (batch["normal"].to(self.device) + 1.0) / 2.0
+        #     combined_normal = torch.cat([normal_gt, normal], dim=1)
+        # else:
+        #     combined_normal = torch.cat([normal], dim=1)
 
+        images_dict = {"img": combined_rgb,
+                       "accumulation": combined_acc,
+                       # "normal": combined_normal,
+                       }
+
+        if self.config.depth_loss_mult > 0:
+            depths_gt = batch["sensor_depth"]
+
+            depths_gt = self._downscale_if_required(depths_gt)
+            depths_gt = depths_gt.to(self.device)
+            if depths_gt.shape[-1] > 1:  # has confidence
+                conf = depths_gt[:, :, 1:2]
+                depths_gt = depths_gt[:, :, 0:1]
+                images_dict["depth_conf"] = colormaps.apply_float_colormap(conf)
+            else:  # no confidence
+                conf = torch.tensor(1.0).to(self.device)
+            depth_pred = outputs["depth"]
+            combined_depth = torch.cat([depths_gt, depth_pred], dim=1)
+            combined_depth = colormaps.apply_depth_colormap(combined_depth)
+        else:
+            depth = colormaps.apply_depth_colormap(
+                outputs["depth"],
+                accumulation=outputs["accumulation"],
+            )
+            combined_depth = torch.cat([depth], dim=1)
+
+        images_dict["depth"] = combined_depth
+
+        if self.config.sky_loss_mult > 0:
+            sky_mask = torch.round(self._downscale_if_required(batch["semantics"])) != 2
+            images_dict["sky_mask"] = colormaps.apply_float_colormap(sky_mask.float())
         return metrics_dict, images_dict
