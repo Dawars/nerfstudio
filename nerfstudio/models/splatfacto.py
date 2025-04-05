@@ -701,14 +701,15 @@ class SplatfactoModel(Model):
         else:
             scale_reg = torch.tensor(0.0).to(self.device)
         # sky loss
+        fg_mask_loss = torch.tensor(0.0).to(self.device)
         if "semantics" in batch and self.config.sky_loss_mult > 0:
             alpha = outputs["accumulation"]
-            semantics = torch.round(self._downscale_if_required(batch["semantics"])) != 2
+            sky_mask = torch.round(self._downscale_if_required(batch["semantics"])) == 2
+            if sky_mask.sum() != 0:
+                fg_mask_loss = alpha[sky_mask].mean() * self.config.sky_loss_mult
             # sky loss
-            fg_label = semantics.float().to(self.device)  # sky
-            fg_mask_loss = F.l1_loss(alpha, fg_label) * self.config.sky_loss_mult
-        else:
-            fg_mask_loss = torch.tensor(0.0).to(self.device)
+            # fg_label = (~sky_mask).float().to(self.device)  # sky
+            # fg_mask_loss = F.l1_loss(alpha, fg_label) * self.config.sky_loss_mult
 
         loss_dict = {
             "main_loss": (1 - self.config.ssim_lambda) * Ll1 + self.config.ssim_lambda * simloss,
