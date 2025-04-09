@@ -138,6 +138,7 @@ def get_depth_image_from_path(
     # if confidence available
     if filepath.with_suffix(".conf.npy").exists():
         conf = np.load(filepath.with_suffix(".conf.npy"))
+        conf = np.clip(conf, 0, 1)
         return torch.from_numpy(np.stack([image, conf], axis=-1))  # [H, W, 2]
     return torch.from_numpy(image[:, :, np.newaxis])
 
