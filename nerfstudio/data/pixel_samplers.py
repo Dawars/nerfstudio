@@ -343,6 +343,7 @@ class PixelSampler:
         all_grays = []
         all_depth_images = []
         all_sensor_images = []
+        all_normal_images = []
         all_semantic_images = []
 
         assert num_rays_per_batch % 2 == 0, "num_rays_per_batch must be divisible by 2"
@@ -364,6 +365,8 @@ class PixelSampler:
                     all_depth_images.append(batch["depth_image"][i][indices[:, 1], indices[:, 2]])
                 if "sensor_depth" in batch:
                     all_sensor_images.append(batch["sensor_depth"][i][indices[:, 1], indices[:, 2]])
+                if "normal_image" in batch:
+                    all_normal_images.append(batch["normal_image"][i][indices[:, 1], indices[:, 2]])
                 if "semantics" in batch:
                     all_semantic_images.append(batch["semantics"][i][indices[:, 1], indices[:, 2]])
 
@@ -383,6 +386,8 @@ class PixelSampler:
                     all_depth_images.append(batch["depth_image"][i][indices[:, 1], indices[:, 2]])
                 if "sensor_depth" in batch:
                     all_sensor_images.append(batch["sensor_depth"][i][indices[:, 1], indices[:, 2]])
+                if "normal_image" in batch:
+                    all_normal_images.append(batch["normal_image"][i][indices[:, 1], indices[:, 2]])
                 if "semantics" in batch:
                     all_depth_images.append(batch["semantics"][i][indices[:, 1], indices[:, 2]])
 
@@ -392,7 +397,7 @@ class PixelSampler:
         collated_batch = {
             key: value[c, y, x]
             for key, value in batch.items()
-            if key not in ("image_idx", "image", "mask", "depth_image", "sensor_depth", "semantics", "is_gray",
+            if key not in ("image_idx", "image", "mask", "depth_image", "sensor_depth", "normal_image", "semantics", "is_gray",
                            "sparse_sfm_points")
                and value is not None
         }
@@ -402,6 +407,8 @@ class PixelSampler:
             collated_batch["depth_image"] = torch.cat(all_depth_images, dim=0)
         if "sensor_depth" in batch:
             collated_batch["sensor_depth"] = torch.cat(all_sensor_images, dim=0)
+        if "normal_image" in batch:
+            collated_batch["normal_image"] = torch.cat(all_normal_images, dim=0)
         if "semantics" in batch:
             collated_batch["semantics"] = torch.cat(all_semantic_images, dim=0)
         if "is_gray" in batch:

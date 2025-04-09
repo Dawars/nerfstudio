@@ -53,8 +53,10 @@ class HeritageDataParserConfig(DataParserConfig):
     """target class to instantiate"""
     data: Path = Path("data/phototourism/trevi-fountain")
     """Directory specifying location of data."""
-    include_mono_prior: bool = False
+    include_mono_normal: bool = False
     """whether or not to include loading of normal """
+    normal_dir: str = "normals"
+    "Subdir of model where sensor depth data is located"
     include_sensor_depth: bool = False
     """whether or not to include loading of scaled depth """
     sensor_depth_dir: str = "sensor_depth"
@@ -326,6 +328,7 @@ class Heritage(DataParser):
         mask_filenames = []
         semantic_filenames = []
         sensor_filenames = []
+        normal_filenames = []
         sparse_pts = []
 
         for filename in file_list:
@@ -351,9 +354,9 @@ class Heritage(DataParser):
             image_filenames.append(self.data / "dense/images" / img.name)
             mask_filenames.append(self.data / "masks" / img.name.replace(".jpg", mask_ext))
             semantic_filenames.append(self.data / "semantic_maps" / img.name.replace(".jpg", ".npz"))
-            # if self.config.include_mono_prior:
+            if self.config.include_mono_normal:
             #     depth_filenames.append(self.data / "depth" / img.name.replace(".jpg", self.config.depth_extension))
-            #     normal_filenames.append(self.data / "normal" / img.name.replace(".jpg", ".npy"))
+                normal_filenames.append(self.data / self.config.normal_dir / img.name.replace(".jpg", ".npy"))
             if self.config.include_sensor_depth:
                 sensor_filenames.append(self.data / self.config.sensor_depth_dir / img.name.replace(".jpg", ".npy"))
 
@@ -526,9 +529,8 @@ class Heritage(DataParser):
         semantic_filenames = [semantic_filenames[i] for i in indices]
         sparse_pts = [sparse_pts[i] for i in indices]
 
-        # if self.config.include_mono_prior:
-        #     depth_filenames = [depth_filenames[i] for i in indices]
-        #     normal_filenames = [normal_filenames[i] for i in indices]
+        if self.config.include_mono_normal:
+            normal_filenames = [normal_filenames[i] for i in indices]
         if self.config.include_sensor_depth:
             sensor_filenames = [sensor_filenames[i] for i in indices]
 
@@ -537,7 +539,7 @@ class Heritage(DataParser):
         if len(pts3d_array) > 1_000_000:
             every_n = 10
         metadata = {
-            "include_mono_prior": self.config.include_mono_prior,
+            "include_mono_prior": self.config.include_mono_normal,
             "sparse_pts": sparse_pts,
             "points3D_xyz": pts3d_array[:, :3][::every_n],
             "points3D_rgb": pts3d_rgb_array[::every_n],
@@ -548,6 +550,8 @@ class Heritage(DataParser):
             semantics = Semantics(filenames=semantic_filenames, classes=classes, colors=None,
                                   mask_classes=transient_objects)
             metadata["semantics"] = semantics
+        if self.config.include_mono_normal:
+            metadata["normal_filenames"] = normal_filenames
         if self.config.include_sensor_depth:
             metadata["sensor_filenames"] = sensor_filenames
             metadata["depth_unit_scale_factor"] = 1

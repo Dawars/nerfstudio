@@ -33,7 +33,8 @@ from torch.utils.data import Dataset
 
 from nerfstudio.cameras.cameras import Cameras
 from nerfstudio.data.dataparsers.base_dataparser import DataparserOutputs
-from nerfstudio.data.utils.data_utils import get_image_mask_tensor_from_path, get_depth_image_from_path, get_semantics_and_mask_tensors_from_path, pil_to_numpy
+from nerfstudio.data.utils.data_utils import get_image_mask_tensor_from_path, get_depth_image_from_path, \
+    get_semantics_and_mask_tensors_from_path, pil_to_numpy, get_normal_image_from_path
 from nerfstudio.utils.images import BasicImages
 
 
@@ -217,6 +218,16 @@ class InputDataset(Dataset):
             )
 
             metadata["sensor_depth"] = sensor_image  # [W, H, 1] ??
+
+        if "normal_filenames" in self.metadata:
+            normal_filepath = self.metadata["normal_filenames"][image_idx]
+
+            camera_to_world = self._dataparser_outputs.cameras.camera_to_worlds[image_idx]
+            normal_image = get_normal_image_from_path(
+                filepath=normal_filepath, height=height, width=width, camera_to_world=camera_to_world
+            )
+            metadata["normal_image"] = normal_image
+
         del data
         return metadata
 
