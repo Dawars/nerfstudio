@@ -738,7 +738,9 @@ class SplatfactoModel(Model):
                 conf = depths_gt[:, :, 1:2]
                 depths_gt = depths_gt[:,:, 0:1]
             else: # no confidence
-                conf = torch.tensor(1.0).to(self.device)
+                conf = torch.ones_like(depths_gt).to(self.device)
+            # if "semantics" in batch and self.config.sky_loss_mult > 0:
+            #     conf *= ~sky_mask
             depths = outputs["depth"]
             if self.config.depth_loss_disparity:
                 # calculate loss in disparity space
