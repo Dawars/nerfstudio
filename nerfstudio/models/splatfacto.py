@@ -744,9 +744,9 @@ class SplatfactoModel(Model):
                 # calculate loss in disparity space
                 disp = torch.where(depths > 0.0, 1.0 / depths, torch.zeros_like(depths))
                 disp_gt = torch.where(depths_gt > 0.0, 1.0 / depths_gt, torch.zeros_like(depths_gt))
-                depthloss = torch.mean(F.l1_loss(disp, disp_gt) * conf)
+                depthloss = torch.mean(F.l1_loss(disp, disp_gt, reduction="none") * conf)
             else:
-                depthloss = torch.mean(F.l1_loss(depths, depths_gt) * conf)
+                depthloss = torch.mean(F.l1_loss(depths, depths_gt, reduction="none") * conf)
             loss_dict["depth_loss"] = depthloss * self.config.depth_loss_mult
         # normal loss
         if "normal_image" in batch and self.config.normal_loss_mult_l1 > 0:
