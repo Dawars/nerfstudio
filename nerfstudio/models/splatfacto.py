@@ -25,6 +25,8 @@ from typing import Dict, List, Literal, Optional, Tuple, Type, Union
 import torch
 import torch.nn.functional as F
 from gsplat.strategy import DefaultStrategy, MCMCStrategy
+
+from nerfstudio.data.utils.data_utils import compute_normals_finite_diff
 from nerfstudio.utils import colormaps
 
 try:
@@ -170,6 +172,10 @@ class SplatfactoModelConfig(ModelConfig):
     """Regularization term for scale in MCMC strategy. Only enabled when using MCMC strategy"""
     depth_loss_mult: float = 0.0
     """Depth loss"""
+    normal_loss_mult_l1: float = 0.0
+    """Normal loss for l1 loss"""
+    normal_loss_mult_cos: float = 0.0
+    """Normal loss for cos loss"""
     depth_loss_disparity: bool = False
     """Calculate depth loss in disparity space (1/x)"""
     sky_loss_mult: float = 0.0
@@ -606,9 +612,15 @@ class SplatfactoModel(Model):
         if background.shape[0] == 3 and not self.training:
             background = background.expand(H, W, 3)
 
+        normals_bhw3, dilated_mask = compute_normals_finite_diff(
+            depth_im[None, ..., 0], K,
+            kernel_size=5,
+            sigma=1.0)  # [-1, 1]
         return {
             "rgb": rgb.squeeze(0),  # type: ignore
             "depth": depth_im,  # type: ignore
+            "normal": normals_bhw3.squeeze(0),  # type: ignore
+            "normal_mask": dilated_mask.squeeze(0)[..., None],  # type: ignore
             "accumulation": alpha.squeeze(0),  # type: ignore
             "background": background,  # type: ignore
         }  # type: ignore
@@ -705,6 +717,7 @@ class SplatfactoModel(Model):
         if "semantics" in batch and self.config.sky_loss_mult > 0:
             alpha = outputs["accumulation"]
             sky_mask = torch.round(self._downscale_if_required(batch["semantics"])) == 2
+            sky_mask = sky_mask.to(self.device)
             if sky_mask.sum() != 0:
                 fg_mask_loss = alpha[sky_mask].mean() * self.config.sky_loss_mult
             # sky loss
@@ -735,6 +748,25 @@ class SplatfactoModel(Model):
             else:
                 depthloss = torch.mean(F.l1_loss(depths, depths_gt) * conf)
             loss_dict["depth_loss"] = depthloss * self.config.depth_loss_mult
+        # normal loss
+        if "normal_image" in batch and self.config.normal_loss_mult_l1 > 0:
+            normal_pred = outputs["normal"]
+            normal_mask = outputs["normal_mask"]
+            normal_gt = batch["normal_image"]
+            normal_gt = self._downscale_if_required(normal_gt).to(self.device)
+            normal_gt[:, :, 0:3] = torch.nn.functional.normalize(normal_gt[:, :, 0:3], p=2, dim=0)
+            if normal_gt.shape[-1] > 3:  # has confidence
+                normal_conf = normal_gt[:, :, 3:4]
+                normal_gt = normal_gt[:, :, 0:3]
+            else:
+                normal_conf = torch.ones_like(normal_gt[..., :1]).to(self.device)
+            normal_conf = normal_conf * normal_mask
+            # if "semantics" in batch and self.config.sky_loss_mult > 0:
+            #     normal_conf *= ~sky_mask
+            normal_loss_l1 = torch.mean(F.l1_loss(normal_gt, normal_pred, reduction="none"), dim=-1, keepdim=True)
+            normal_loss_cos = 1 - torch.sum(normal_gt * normal_pred, dim=-1, keepdim=True)
+            loss_dict["normal_loss"] = torch.mean(normal_conf * (normal_loss_l1  * self.config.normal_loss_mult_l1
+                                                                 + normal_loss_cos * self.config.normal_loss_mult_cos))
 
         # Losses for mcmc
         if self.config.strategy == "mcmc":
@@ -785,8 +817,9 @@ class SplatfactoModel(Model):
 
         acc = colormaps.apply_colormap(outputs["accumulation"])
 
-        # normal = outputs["normal"]
-        # normal = (normal + 1.0) / 2.0
+        normal = outputs["normal"]
+        normal = (normal + 1.0) / 2.0
+        normal_mask = outputs["normal_mask"]
 
         combined_acc = torch.cat([acc], dim=1)
 
@@ -821,15 +854,24 @@ class SplatfactoModel(Model):
             metrics_dict["cc_ssim"] = float(cc_ssim)
             metrics_dict["cc_lpips"] = float(cc_lpips)
 
-        # if "normal" in batch:
-        #     normal_gt = (batch["normal"].to(self.device) + 1.0) / 2.0
-        #     combined_normal = torch.cat([normal_gt, normal], dim=1)
-        # else:
-        #     combined_normal = torch.cat([normal], dim=1)
+        if "normal_image" in batch:
+            normal_gt = batch["normal_image"].to(self.device)
+            if normal_gt.shape[-1] > 3:  # has confidence
+                normal_conf = normal_gt[:, :, 3:4]
+                normal_gt = normal_gt[:, :, 0:3]
+                normal_mask = torch.cat([normal_conf, normal_mask], dim=1)
+            else:  # no confidence
+                normal_conf = torch.ones_like(normal_gt[..., :1]).to(self.device)
+
+            normal_gt = (normal_gt + 1.0) / 2.0
+            combined_normal = torch.cat([normal_gt, normal], dim=1)
+        else:
+            combined_normal = torch.cat([normal], dim=1)
 
         images_dict = {"img": combined_rgb,
                        "accumulation": combined_acc,
-                       # "normal": combined_normal,
+                       "normal": combined_normal,
+                       "normal_mask": colormaps.apply_float_colormap(normal_mask),
                        }
 
         if self.config.depth_loss_mult > 0:
