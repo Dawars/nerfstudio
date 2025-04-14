@@ -194,31 +194,39 @@ def get_normal_image_from_path(
         return torch.from_numpy(np.concatenate([normal_map, conf[..., None]], axis=-1))  # [H, W, 3+1]
     return normal_map
 
+"""Code from DRGSplat: Depth-Regularized 3D Gaussian Splatting"""
 def gaussian_1d(kernel_size, sigma, derivative=False):
     """
-    Constructs a 1D Gaussian or its first derivative based on finite difference approximation.
+    Create a 1D Gaussian or Gaussian-derivative kernel vector.
 
     Args:
-        kernel_size (int): Odd number, length of the kernel.
+        kernel_size (int): Size of the kernel (odd preferred).
         sigma (float): Standard deviation of the Gaussian.
-        derivative (bool): If True, return the first derivative.
+        derivative (bool): If True, create derivative-of-Gaussian.
+                        If False, create standard Gaussian.
 
     Returns:
-        Tensor of shape (kernel_size,)
+        torch.Tensor of shape (kernel_size,) containing the kernel.
     """
-    assert kernel_size % 2 == 1, "kernel_size must be odd"
-    half = kernel_size // 2
-    x = torch.arange(-half, half + 1, dtype=torch.float32)
+    # Coordinate grid centered at 0
+    center = (kernel_size - 1) / 2
+    x = torch.arange(kernel_size) - center
 
-    if derivative:
-        # Derivative of Gaussian based on paper (Equation 8)
-        g = (-x / sigma ** 2) * torch.exp(-x ** 2 / (2 * sigma ** 2))
-    else:
-        # Standard Gaussian
-        g = torch.exp(-x ** 2 / (2 * sigma ** 2))
-        g /= g.sum()  # normalize the Gaussian
+    # Compute standard Gaussian
+    gauss = torch.exp(-0.5 * (x / sigma) ** 2)
+    gauss = gauss / gauss.sum()  # normalize
 
-    return g
+    if not derivative:
+        return gauss
+
+    # Gaussian derivative (in 1D)
+    # d/dx of gaussian = -x/sigma^2 * gauss
+    # We'll normalize so it sums to 0, but no final normalization on amplitude
+    gauss_deriv = -x / (sigma ** 2) * gauss
+    # Typically we ensure sum of positive side = -sum of negative side
+    # so the integral is 0. The above formula already does that inherently.
+    return gauss_deriv
+
 
 def make_gaussian_deriv_kernels(kernel_size=5, sigma=1.0):
     """
