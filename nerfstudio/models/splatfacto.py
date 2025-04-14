@@ -742,8 +742,8 @@ class SplatfactoModel(Model):
                 depths_gt = depths_gt[:,:, 0:1]
             else: # no confidence
                 conf = torch.ones_like(depths_gt).to(self.device)
-            # if "semantics" in batch and self.config.sky_loss_mult > 0:
-            #     conf *= ~sky_mask
+                if "semantics" in batch and self.config.sky_loss_mult > 0:
+                    conf *= ~sky_mask
             depths = outputs["depth"]
             if self.config.depth_loss_disparity:
                 # calculate loss in disparity space
@@ -765,9 +765,9 @@ class SplatfactoModel(Model):
                 normal_gt = normal_gt[:, :, 0:3]
             else:
                 normal_conf = torch.ones_like(normal_gt[..., :1]).to(self.device)
+                if "semantics" in batch and self.config.sky_loss_mult > 0:
+                    normal_conf *= ~sky_mask
             normal_conf = normal_conf * normal_mask
-            # if "semantics" in batch and self.config.sky_loss_mult > 0:
-            #     normal_conf *= ~sky_mask
             normal_loss_l1 = torch.mean(F.l1_loss(normal_gt, normal_pred, reduction="none"), dim=-1, keepdim=True)
             normal_loss_cos = 1 - torch.sum(normal_gt * normal_pred, dim=-1, keepdim=True)
             loss_dict["normal_loss"] = torch.mean(normal_conf * (normal_loss_l1  * self.config.normal_loss_mult_l1
