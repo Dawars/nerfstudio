@@ -82,7 +82,7 @@ class HeritageDataParserConfig(DataParserConfig):
 
 
 transient_objects = ['person', 'car', 'bicycle', 'minibike', 'tree', "desk",
-                     "blanket", "bed ", "tray", "computer", "swimming pool",
+                     "blanket", "bed", "tray", "computer", "swimming pool",
                      "plate", "basket", "glass", "food", "land",
                      ]
 label_id_mapping_ade20k = {'airplane': 90,
@@ -100,7 +100,7 @@ label_id_mapping_ade20k = {'airplane': 90,
                            'base': 40,
                            'basket': 112,
                            'bathtub': 37,
-                           'bed ': 7,
+                           'bed': 7,
                            'bench': 69,
                            'bicycle': 127,
                            'blanket': 131,
