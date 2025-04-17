@@ -80,11 +80,6 @@ class HeritageDataParserConfig(DataParserConfig):
     setting: str = ""
     """Choose tsv file which contains subset of images, e.g: all, clean, facade"""
 
-
-transient_objects = ['person', 'car', 'bicycle', 'minibike', 'tree', "desk",
-                     "blanket", "bed", "tray", "computer", "swimming pool",
-                     "plate", "basket", "glass", "food", "land",
-                     ]
 label_id_mapping_ade20k = {'airplane': 90,
                            'animal': 126,
                            'apparel': 92,
@@ -235,6 +230,21 @@ label_id_mapping_ade20k = {'airplane': 90,
                            'water': 21,
                            'waterfall': 113,
                            'windowpane': 8}
+transient_objects = list(set(label_id_mapping_ade20k.keys()).difference([
+    "sky",
+    "bridge", "building", "ceiling", "dirt track",
+    # "fence", #?
+    "field",
+    "floor",
+    "house",
+    "land",
+    "road",
+    "sand",
+    "sidewalk",
+    "skyscraper", "stairs", "stairway", "step",
+    "tower",
+    # "wall", # ?
+    "windowpane",]))
 id_label_mapping_ade20k = {v: k for k, v in label_id_mapping_ade20k.items()}
 
 @dataclass
