@@ -239,11 +239,12 @@ transient_objects = list(set(label_id_mapping_ade20k.keys()).difference([
     "house",
     "land",
     "road",
-    "sand",
     "sidewalk",
+    "sand",
     "skyscraper", "stairs", "stairway", "step",
     "tower",
-    # "wall", # ?
+    "column",
+    "wall", # ?
     "windowpane",]))
 id_label_mapping_ade20k = {v: k for k, v in label_id_mapping_ade20k.items()}
 
