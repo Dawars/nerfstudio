@@ -841,9 +841,16 @@ class SplatfactoModel(Model):
         # Switch images from [H, W, C] to [1, C, H, W] for metrics computations
         gt_rgb = torch.moveaxis(gt_rgb, -1, 0)[None, ...]
         predicted_rgb = torch.moveaxis(predicted_rgb, -1, 0)[None, ...]
+        if "mask" in batch:
+            # batch["mask"] : [H, W, 1]
+            mask = self._downscale_if_required(batch["mask"])
+            mask = mask.to(self.device)
+            mask = mask.permute(2, 0, 1)[None].tile(1, 3, 1, 1).bool()
+        else:
+            mask = None
 
         psnr = self.psnr(gt_rgb, predicted_rgb)
-        ssim = self.ssim(gt_rgb, predicted_rgb)
+        ssim = self.ssim(gt_rgb, predicted_rgb, mask)
         lpips = self.lpips(gt_rgb, predicted_rgb)
 
         # all of these metrics will be logged as scalars
