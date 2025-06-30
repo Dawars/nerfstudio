@@ -737,11 +737,11 @@ class SplatfactoModel(Model):
 
             depths_gt = self._downscale_if_required(depths_gt)
             depths_gt = depths_gt.to(self.device)
+            conf = depths_gt > 0  # default confidence is a mask for invalid values (sky, invalid)
             if depths_gt.shape[-1] > 1:  # has confidence
-                conf = depths_gt[:, :, 1:2]
+                conf *= depths_gt[:, :, 1:2]
                 depths_gt = depths_gt[:,:, 0:1]
             else: # no confidence
-                conf = torch.ones_like(depths_gt).to(self.device)
                 if "semantics" in batch and self.config.sky_loss_mult > 0:
                     conf *= ~sky_mask
             depths = outputs["depth"]
