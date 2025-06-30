@@ -749,9 +749,9 @@ class SplatfactoModel(Model):
                 # calculate loss in disparity space
                 disp = torch.where(depths > 0.0, 1.0 / depths, torch.zeros_like(depths))
                 disp_gt = torch.where(depths_gt > 0.0, 1.0 / depths_gt, torch.zeros_like(depths_gt))
-                depthloss = torch.mean(F.l1_loss(disp, disp_gt, reduction="none") * conf)
+                depthloss = torch.mean(F.l1_loss(disp, disp_gt, reduction="none") * conf * mask)
             else:
-                depthloss = torch.mean(F.l1_loss(depths, depths_gt, reduction="none") * conf)
+                depthloss = torch.mean(F.l1_loss(depths, depths_gt, reduction="none") * conf * mask)
             loss_dict["depth_loss"] = depthloss * self.config.depth_loss_mult
         # normal loss
         if "normal_image" in batch and self.config.normal_loss_mult_l1 > 0:
@@ -770,7 +770,7 @@ class SplatfactoModel(Model):
             normal_conf = normal_conf * normal_mask
             normal_loss_l1 = torch.mean(F.l1_loss(normal_gt, normal_pred, reduction="none"), dim=-1, keepdim=True)
             normal_loss_cos = 1 - torch.sum(normal_gt * normal_pred, dim=-1, keepdim=True)
-            loss_dict["normal_loss"] = torch.mean(normal_conf * (normal_loss_l1  * self.config.normal_loss_mult_l1
+            loss_dict["normal_loss"] = torch.mean(mask * normal_conf * (normal_loss_l1  * self.config.normal_loss_mult_l1
                                                                  + normal_loss_cos * self.config.normal_loss_mult_cos))
 
         # Losses for mcmc
