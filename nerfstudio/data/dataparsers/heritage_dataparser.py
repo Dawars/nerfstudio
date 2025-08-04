@@ -231,7 +231,7 @@ label_id_mapping_ade20k = {'airplane': 90,
                            'waterfall': 113,
                            'windowpane': 8}
 transient_objects = list(set(label_id_mapping_ade20k.keys()).difference([
-    "sky",
+    # "sky",
     "bridge", "building", "ceiling", "dirt track",
     # "fence", #?
     "field",
