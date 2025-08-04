@@ -327,7 +327,9 @@ class Heritage(DataParser):
             pts3d_rgb_array[pts_id] = torch.from_numpy(pts.rgb)
 
         # determine mask extension
-        mask_ext = ".npy" if list((self.data / "masks").glob("*.npy")) else ".png"
+        mask_root = self.data / "masks" if self.data.joinpath("masks").exists() else self.data.joinpath("dense", "masks")
+        segmask_root = self.data / "semantic_maps" if self.data.joinpath("semantic_maps").exists() else self.data.joinpath("dense", "semantic_maps")
+        mask_ext = ".npy" if list(mask_root.glob("*.npy")) else ".png"
 
         poses = []
         fxs = []
@@ -364,8 +366,8 @@ class Heritage(DataParser):
             widths.append(torch.tensor(cam.width))
 
             image_filenames.append(self.data / "dense/images" / img.name)
-            mask_filenames.append(self.data / "masks" / img.name.replace(".jpg", mask_ext))
-            semantic_filenames.append(self.data / "semantic_maps" / img.name.replace(".jpg", ".npz"))
+            mask_filenames.append(mask_root / img.name.replace(".jpg", mask_ext))
+            semantic_filenames.append(segmask_root / img.name.replace(".jpg", ".npz"))
             if self.config.include_mono_normal:
             #     depth_filenames.append(self.data / "depth" / img.name.replace(".jpg", self.config.depth_extension))
                 normal_filenames.append(self.data / self.config.normal_dir / img.name.replace(".jpg", ".npy"))
