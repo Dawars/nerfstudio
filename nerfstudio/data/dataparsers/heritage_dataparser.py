@@ -548,8 +548,8 @@ class Heritage(DataParser):
 
         # subsample pcd if too large
         every_n = 1
-        if len(pts3d_array) > 1_000_000:
-            every_n = 10
+        # if len(pts3d_array) > 1_000_000:
+        #     every_n = 10
         metadata = {
             "include_mono_prior": self.config.include_mono_normal,
             "sparse_pts": sparse_pts,
