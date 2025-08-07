@@ -230,16 +230,22 @@ label_id_mapping_ade20k = {'airplane': 90,
                            'water': 21,
                            'waterfall': 113,
                            'windowpane': 8}
-transient_objects = list(set(label_id_mapping_ade20k.keys()).difference([
-    # "sky",
-    "bridge", "building", "ceiling", "dirt track",
-    # "fence", #?
-    "field",
+transient_objects = list(set(label_id_mapping_ade20k.keys()).difference([  # should be baked into binary mask already (in my case)
+    "bridge", "building", "ceiling", "dirt track", "door",
+    "river", "sea", "lake", "fountain", "railing", "bridge", "mountain", "hill",
+    "signboard", "trade name", "bulletin board",
+    "lamp", "rock", "base", "rug",
+    "plant",  # part of ground
+    "awning",  # usually changes a lot but could leave a hole in the wall?
+    "pier", "bench", "bannister",
+    "clock",
+    # "fence", # usually construction
+    "field", "water", "earth", "grass",
     "floor",
     "house",
     "land",
-    "road",
-    "sidewalk",
+    "road", "path", "sidewalk",
+    "grandstand",
     "sand",
     "skyscraper", "stairs", "stairway", "step",
     "tower",
