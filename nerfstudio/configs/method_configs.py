@@ -840,10 +840,10 @@ method_configs["neus-facto-angelo"] = TrainerConfig(
                 use_numerical_gradients=True,
                 base_res=64,
                 max_res=4096,
-                log2_hashmap_size=22,
+                log2_hashmap_size=18,
                 hash_features_per_level=8,
                 hash_smoothstep=False,
-                use_position_encoding=False,
+                use_position_encoding=True,
             ),
             background_model="grid",
             eval_num_rays_per_chunk=1024,
@@ -859,15 +859,15 @@ method_configs["neus-facto-angelo"] = TrainerConfig(
     optimizers={
         "proposal_networks": {
             "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-15),
-            "scheduler": MultiStepSchedulerConfig(max_steps=1000_000),
+            "scheduler": MultiStepSchedulerConfig(max_steps=200_000),
         },
         "fields": {
             "optimizer": AdamOptimizerConfig(lr=1e-3, eps=1e-15),
-            "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=5000, milestones=[600_000, 800_000], gamma=0.1),
+            "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=5000, milestones=[600_000//5, 800_000//5], gamma=0.1),
         },
         "field_background": {
             "optimizer": AdamWOptimizerConfig(lr=1e-3, eps=1e-15),
-            "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=5000, milestones=[300_000, 400_000], gamma=0.1),
+            "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=5000, milestones=[300_000//5, 400_000//5], gamma=0.1),
         },
     },
     viewer=ViewerConfig(num_rays_per_chunk=1 << 15),
