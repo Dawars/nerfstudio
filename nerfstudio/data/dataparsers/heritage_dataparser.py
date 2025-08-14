@@ -79,6 +79,10 @@ class HeritageDataParserConfig(DataParserConfig):
     """whether or not to include loading of semantics data"""
     setting: str = ""
     """Choose tsv file which contains subset of images, e.g: all, clean, facade"""
+    include_eval_in_train: bool = False
+    """For nerfw eval protocol when half of test images are trained and other half are evaluated using appearance embedding"""
+    depth_extension: str = ".npy"
+    """Depth extension, can be e.g. .png, .npy or .npy.gz"""
 
 label_id_mapping_ade20k = {'airplane': 90,
                            'animal': 126,
@@ -378,7 +382,7 @@ class Heritage(DataParser):
             #     depth_filenames.append(self.data / "depth" / img.name.replace(".jpg", self.config.depth_extension))
                 normal_filenames.append(self.data / self.config.normal_dir / img.name.replace(".jpg", ".npy"))
             if self.config.include_sensor_depth:
-                sensor_filenames.append(self.data / self.config.sensor_depth_dir / img.name.replace(".jpg", ".npy"))
+                sensor_filenames.append(self.data / self.config.sensor_depth_dir / img.name.replace(".jpg", self.config.depth_extension))
 
             # load sparse 3d points for each view
             # visualize pts3d for each image
@@ -416,6 +420,8 @@ class Heritage(DataParser):
 
         if split == "train":
             indices = i_train
+            if self.config.include_eval_in_train:
+                indices.extend(i_eval)
         elif split in ["val", "test"]:
             indices = i_eval
         else:
