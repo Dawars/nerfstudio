@@ -132,7 +132,7 @@ def get_depth_image_from_path(
     if filepath.suffix == ".npy":
         image = np.load(filepath).astype(np.float32) * scale_factor
         image = cv2.resize(image, (width, height), interpolation=interpolation)
-    elif filepath.suffix == ".npy.gz":
+    elif str(filepath).endswith(".npy.gz"):
         with gzip.GzipFile(filepath, "r") as f:
             image = np.load(f).astype(np.float32) * scale_factor
         image = cv2.resize(image, (width, height), interpolation=interpolation)
