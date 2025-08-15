@@ -917,7 +917,7 @@ class SplatfactoModel(Model):
             depths_gt = self._downscale_if_required(depths_gt)
             depths_gt = depths_gt.to(self.device)
             b, c, h, w = mask.shape
-            ground_mask = torch.ones((h, w, 1))
+            ground_mask = torch.ones((h, w, 1), device=mask.device)
             if self.config.ground_depth_mult > 0:
                 ground_mask = self._downscale_if_required(torch.sum(batch["semantics"] == self.ground_indices, dim=-1, keepdim=True) != 0).bool()
 
