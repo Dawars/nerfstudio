@@ -916,9 +916,11 @@ class SplatfactoModel(Model):
 
             depths_gt = self._downscale_if_required(depths_gt)
             depths_gt = depths_gt.to(self.device)
-            ground_mask = torch.ones_like(mask)
+            b, c, h, w = mask.shape
+            ground_mask = torch.ones((h, w, 1))
             if self.config.ground_depth_mult > 0:
-                ground_mask = self._downscale_if_required(ground_mask)
+                ground_mask = self._downscale_if_required(torch.sum(batch["semantics"] == self.ground_indices, dim=-1, keepdim=True) != 0).bool()
+
             if depths_gt.shape[-1] > 1:  # has confidence
                 conf = depths_gt[:, :, 1:2]
                 depths_gt = depths_gt[:, :, 0:1]
