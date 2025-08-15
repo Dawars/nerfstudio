@@ -25,6 +25,9 @@ from torch import Tensor
 
 from nerfstudio.data.scene_box import OrientedBox
 
+from rich.console import Console
+
+CONSOLE = Console(width=120)
 
 @dataclass
 class Gaussians:
@@ -507,8 +510,10 @@ def k_nearest_sklearn(
 
     nn_model = NearestNeighbors(n_neighbors=k + 1, algorithm="auto", metric=metric).fit(x_np)
 
+    CONSOLE.log("Starting pcd knn")
     # Find the k-nearest neighbors
     distances, indices = nn_model.kneighbors(x_np)
+    CONSOLE.log("Finished pcd knn")
 
     # Exclude the point itself from the result and return
     return torch.tensor(distances[:, 1:], dtype=torch.float32), torch.tensor(indices[:, 1:], dtype=torch.int64)
