@@ -1063,11 +1063,11 @@ method_configs["splatfacto"] = TrainerConfig(
 
 method_configs["splatfacto-big"] = TrainerConfig(
     method_name="splatfacto",
-    steps_per_eval_image=100,
+    steps_per_eval_image=1000,
     steps_per_eval_batch=0,
     steps_per_save=2000,
-    steps_per_eval_all_images=1000,
-    max_num_iterations=30000,
+    steps_per_eval_all_images=5000,
+    max_num_iterations=30001,
     mixed_precision=False,
     pipeline=VanillaPipelineConfig(
         datamanager=FullImageDatamanagerConfig(
