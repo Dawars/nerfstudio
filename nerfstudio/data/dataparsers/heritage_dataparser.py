@@ -475,7 +475,7 @@ class Heritage(DataParser):
         # normalize cropped area to [-1, -1]
         scene_origin = origin.numpy()
 
-        points_normalized = (points_ori - scene_origin) / (bbx_max - bbx_min) * 2
+        points_normalized = (points_ori - scene_origin) / (bbx_max - bbx_min) * 2  # TODO why /2
         # filter out points out of [-1, 1]
         mask = np.prod((points_normalized > -1), axis=-1, dtype=bool) & np.prod(
             (points_normalized < 1), axis=-1, dtype=bool
