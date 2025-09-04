@@ -499,7 +499,7 @@ class Heritage(DataParser):
         offset_cube = torch.meshgrid(offset, offset, offset)
         offset_cube = torch.stack(offset_cube, dim=-1).reshape(-1, 3)
 
-        voxel_size = scene_config["voxel_size"] / (radius * 1.01)
+        voxel_size = scene_config["voxel_size"] * scale
         offset_cube *= voxel_size  # voxel size
         expand_points = points_ori[:, None, :] + offset_cube[None]
         expand_points = expand_points.reshape(-1, 3)
