@@ -283,7 +283,9 @@ class Heritage(DataParser):
 
         with open(config_path, "r") as yamlfile:
             scene_config = yaml.load(yamlfile, Loader=yaml.FullLoader)
-
+        
+        print(scene_config)
+        
         sfm_to_gt = np.array(scene_config["sfm2gt"])
         gt_to_sfm = np.linalg.inv(sfm_to_gt)
         sfm_vert1 = gt_to_sfm[:3, :3] @ np.array(scene_config["eval_bbx"][0]) + gt_to_sfm[:3, 3]
@@ -475,14 +477,14 @@ class Heritage(DataParser):
         # normalize cropped area to [-1, -1]
         scene_origin = origin.numpy()
 
-        points_normalized = (points_ori - scene_origin) / (bbx_max - bbx_min) * 2  # TODO why /2
+        points_normalized = (points_ori - scene_origin) / (bbx_max - bbx_min) * 2
         # filter out points out of [-1, 1]
         mask = np.prod((points_normalized > -1), axis=-1, dtype=bool) & np.prod(
             (points_normalized < 1), axis=-1, dtype=bool
         )
         points_ori = points_ori[mask]
 
-        save_points("nori_10_filterbbox.ply", points_ori)
+        save_points(f"{data.name}_nori_10_filterbbox.ply", points_ori)
 
         points_ori = torch.from_numpy(points_ori).float()
 
