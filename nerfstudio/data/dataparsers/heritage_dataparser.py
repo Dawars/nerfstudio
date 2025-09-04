@@ -533,9 +533,10 @@ class Heritage(DataParser):
         # in x,y,z order
         # assumes that the scene is centered at the origin
         scene_box = SceneBox(  # only extents because scene is already centered
-            aabb=torch.from_numpy(np.array(scene_config["eval_bbx"]) * scale),
+            aabb=torch.from_numpy((np.array(scene_config["eval_bbx"])-origin) * scale),
             coarse_binary_gird=mask,
         )
+        print("scene aabb", scene_box.aabb)
 
         cameras = Cameras(
             camera_to_worlds=poses[:, :3, :4],
