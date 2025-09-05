@@ -535,7 +535,7 @@ class Heritage(DataParser):
         # in x,y,z order
         # assumes that the scene is centered at the origin
         scene_box = SceneBox(  # only extents because scene is already centered
-            aabb=(torch.from_numpy(np.array(scene_config["eval_bbx"]))-origin) * scale,
+            aabb=(torch.from_numpy(np.array(scene_config["eval_bbx"]))-origin) / radius,
             coarse_binary_gird=mask, collider_type="box"
         )
         print("scene aabb", scene_box.aabb)
