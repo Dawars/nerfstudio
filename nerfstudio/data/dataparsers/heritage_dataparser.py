@@ -484,7 +484,7 @@ class Heritage(DataParser):
         )
         points_ori = points_ori[mask]
 
-        save_points(f"{data.name}_nori_10_filterbbox.ply", points_ori)
+        save_points(f"{self.config.data.name}_nori_10_filterbbox.ply", points_ori)
 
         points_ori = torch.from_numpy(points_ori).float()
 
