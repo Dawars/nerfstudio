@@ -1073,6 +1073,11 @@ method_configs["splatfacto-big"] = TrainerConfig(
         datamanager=FullImageDatamanagerConfig(
             dataparser=NerfstudioDataParserConfig(load_3D_points=True),
             cache_images_type="uint8",
+            # cache_compressed_images=True,
+            # train_num_images_to_sample_from=50,
+            # train_num_times_to_repeat_images=100,
+            # eval_num_images_to_sample_from=20,
+            # eval_num_times_to_repeat_images=100,
         ),
         model=SplatfactoModelConfig(
             cull_alpha_thresh=0.005,
