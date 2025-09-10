@@ -866,6 +866,17 @@ class SplatfactoModel(Model):
         # Switch images from [H, W, C] to [1, C, H, W] for metrics computations
         gt_rgb = torch.moveaxis(gt_rgb, -1, 0)[None, ...]
         predicted_rgb = torch.moveaxis(predicted_rgb, -1, 0)[None, ...]
+
+        # all of these metrics will be logged as scalars
+        metrics_dict = {}
+
+        psnr = self.psnr(gt_rgb, predicted_rgb)
+        ssim = self.ssim(gt_rgb, predicted_rgb, None)
+        lpips = self.lpips(gt_rgb, predicted_rgb)
+        metrics_dict.update({"psnr": float(psnr.item()),
+                             "ssim": float(ssim),
+                             "lpips": float(lpips),
+                             })  # type: ignore
         if "mask" in batch:
             # batch["mask"] : [H, W, 1]
             mask = self._downscale_if_required(batch["mask"])
@@ -877,17 +888,34 @@ class SplatfactoModel(Model):
         else:
             mask = None
 
-        psnr = self.psnr(gt_rgb, predicted_rgb)
-        ssim = self.ssim(gt_rgb, predicted_rgb, None)
-        ssim_masked = self.ssim(gt_rgb, predicted_rgb, mask)  # transient mask
-        lpips = self.lpips(gt_rgb, predicted_rgb)
+
+        psnr_black_mask = self.psnr(gt_rgb, predicted_rgb)
+        ssim_black_mask = self.ssim(gt_rgb, predicted_rgb, None)
+        ssim_masked = self.ssim(gt_rgb, predicted_rgb, mask)
+        lpips_black_mask = self.lpips(gt_rgb, predicted_rgb)
 
         # all of these metrics will be logged as scalars
-        metrics_dict = {"psnr": float(psnr.item()),
-                        "ssim": float(ssim),
+        metrics_dict.update({"psnr_black_mask": float(psnr_black_mask.item()),
+                        "ssim_black_mask": float(ssim_black_mask),
                         "ssim_masked": float(ssim_masked),
-                        "lpips": float(lpips),
-                        }  # type: ignore
+                        "lpips_black_mask": float(lpips_black_mask),
+                        })  # type: ignore
+
+        # sky and transient mask by mult by 0
+        sky_mask = torch.round(self._downscale_if_required(batch["semantics"])) != 2
+        gt_rgb = gt_rgb * sky_mask
+        predicted_rgb = predicted_rgb * sky_mask
+        psnr_sky_mask = self.psnr(gt_rgb, predicted_rgb)
+        ssim_sky_mask = self.ssim(gt_rgb, predicted_rgb, None)
+        ssim_masked_sky = self.ssim(gt_rgb, predicted_rgb, mask*sky_mask)
+        lpips_sky_mask = self.lpips(gt_rgb, predicted_rgb)
+
+        # all of these metrics will be logged as scalars
+        metrics_dict.update({"psnr_sky_mask": float(psnr_sky_mask.item()),
+                        "ssim_sky_mask": float(ssim_sky_mask),
+                        "ssim_masked_sky": float(ssim_masked_sky),
+                        "lpips_sky_mask": float(lpips_sky_mask),
+                        })  # type: ignore
 
         if self.config.color_corrected_metrics:
             assert cc_rgb is not None
@@ -945,8 +973,6 @@ class SplatfactoModel(Model):
             combined_depth = torch.cat([depth], dim=1)
 
         images_dict["depth"] = combined_depth
+        images_dict["sky_mask"] = colormaps.apply_float_colormap(sky_mask.float())
 
-        if self.config.sky_loss_mult > 0:
-            sky_mask = torch.round(self._downscale_if_required(batch["semantics"])) != 2
-            images_dict["sky_mask"] = colormaps.apply_float_colormap(sky_mask.float())
         return metrics_dict, images_dict
