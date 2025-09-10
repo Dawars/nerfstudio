@@ -902,7 +902,10 @@ class SplatfactoModel(Model):
                         })  # type: ignore
 
         # sky and transient mask by mult by 0
-        sky_mask = torch.round(self._downscale_if_required(batch["semantics"])) != 2
+        if self.config.eval_right_half:
+            sky_mask = sky_mask.to(self.device)
+            sky_mask = sky_mask[:, sky_mask.shape[1] // 2 :, :]
+            sky_mask = sky_mask.permute(2, 0, 1)[None].tile(1, 3, 1, 1).bool()
         gt_rgb = gt_rgb * sky_mask
         predicted_rgb = predicted_rgb * sky_mask
         psnr_sky_mask = self.psnr(gt_rgb, predicted_rgb)
@@ -973,6 +976,6 @@ class SplatfactoModel(Model):
             combined_depth = torch.cat([depth], dim=1)
 
         images_dict["depth"] = combined_depth
-        images_dict["sky_mask"] = colormaps.apply_float_colormap(sky_mask.float())
+        images_dict["sky_mask"] = colormaps.apply_float_colormap(sky_mask.float()[0].permute(1, 2, 0))
 
         return metrics_dict, images_dict
