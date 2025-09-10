@@ -259,6 +259,7 @@ transient_objects = list(set(label_id_mapping_ade20k.keys()).difference([  # sho
     "wall",
     "windowpane",
     "sculpture", ]))
+assert "sky" not in transient_objects
 id_label_mapping_ade20k = {v: k for k, v in label_id_mapping_ade20k.items()}
 
 @dataclass
