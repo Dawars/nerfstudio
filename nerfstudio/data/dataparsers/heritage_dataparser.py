@@ -77,6 +77,8 @@ class HeritageDataParserConfig(DataParserConfig):
     """The method to use to center the poses."""
     include_semantics: bool = False
     """whether or not to include loading of semantics data"""
+    include_mask: bool = True
+    """whether or not to include loading of mask data"""
     setting: str = ""
     """Choose tsv file which contains subset of images, e.g: all, clean, facade"""
     include_eval_in_train: bool = False
@@ -594,7 +596,7 @@ class Heritage(DataParser):
 
         dataparser_outputs = DataparserOutputs(
             image_filenames=image_filenames,
-            mask_filenames=mask_filenames,
+            mask_filenames=mask_filenames if self.config.include_mask else None,
             cameras=cameras,
             scene_box=scene_box,
             dataparser_transform=transform_matrix,
