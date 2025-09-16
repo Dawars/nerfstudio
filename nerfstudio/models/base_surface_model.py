@@ -489,8 +489,17 @@ class SurfaceModel(Model):
         image = torch.moveaxis(image, -1, 0)[None, ...]
         rgb = torch.moveaxis(rgb, -1, 0)[None, ...]
 
+        mask = None
+        if "mask" in batch:
+            # batch["mask"] : [H, W, 1]
+            mask = batch["mask"]
+            mask = mask.to(self.device)
+            mask = mask.permute(2, 0, 1)[None].tile(1, 3, 1, 1).bool()
+
+            image = image * mask
+            rgb = rgb * mask
         psnr = self.psnr(image, rgb)
-        ssim = self.ssim(image, rgb)
+        ssim = self.ssim(image, rgb, None)  # for eval take all pixels as nerfbaselines does
         lpips = self.lpips(image, rgb)
 
         # all of these metrics will be logged as scalars
