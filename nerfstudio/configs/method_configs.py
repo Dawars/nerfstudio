@@ -874,6 +874,78 @@ method_configs["neus-facto-angelo"] = TrainerConfig(
     vis="viewer",
 )
 
+method_configs["neus-facto-angelo-long"] = TrainerConfig(
+    method_name="neus-facto-angelo-long",
+    steps_per_eval_image=25000,
+    steps_per_eval_batch=25000,
+    steps_per_save=20000,
+    steps_per_eval_all_images=1000000,  # set to a very large model so we don't eval with all images
+    max_num_iterations=1_000_001,
+    mixed_precision=False,
+    pipeline=VanillaPipelineConfig(
+        datamanager=VanillaDataManagerConfig(
+            dataparser=SDFStudioDataParserConfig(),
+            # load_from_disk=False, cache_compressed_images=True,
+            train_num_images_to_sample_from=20,
+            train_num_times_to_repeat_images=100,
+            eval_num_images_to_sample_from=20,
+            eval_num_times_to_repeat_images=100,
+            train_num_rays_per_batch=2048,
+            eval_num_rays_per_batch=1024,
+        ),
+        model=NeuSFactoModelConfig(
+            near_plane=0.01,
+            far_plane=1000.0,
+            overwrite_near_far_plane=True,
+            sdf_field=SDFFieldConfig(
+                use_grid_feature=True,
+                num_layers=1,
+                num_layers_color=4,
+                hidden_dim=256,
+                hidden_dim_color=256,
+                geometric_init=True,
+                bias=0.5,
+                beta_init=0.3,
+                inside_outside=False,
+                use_appearance_embedding=True,
+                use_numerical_gradients=True,
+                base_res=64,
+                max_res=4096,
+                log2_hashmap_size=22,
+                hash_features_per_level=8,
+                hash_smoothstep=False,
+                use_position_encoding=False,
+                # use_position_encoding=True,
+            ),
+            background_model="grid",
+            eval_num_rays_per_chunk=1024,
+            level_init=8,
+            eikonal_loss_mult=0.01,
+            use_anneal_beta=True,
+            enable_progressive_hash_encoding=True,
+            enable_numerical_gradients_schedule=True,
+            enable_curvature_loss_schedule=True,
+            curvature_loss_multi=5e-4,
+        ),
+    ),
+    optimizers={
+        "proposal_networks": {
+            "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-15),
+            "scheduler": MultiStepSchedulerConfig(max_steps=200_000),
+        },
+        "fields": {
+            "optimizer": AdamOptimizerConfig(lr=1e-3, eps=1e-15),
+            "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=5000, milestones=[600_000, 800_000], gamma=0.1),
+        },
+        "field_background": {
+            "optimizer": AdamWOptimizerConfig(lr=1e-3, eps=1e-15),
+            "scheduler": MultiStepWarmupSchedulerConfig(warm_up_end=5000, milestones=[300_000, 400_000], gamma=0.1),
+        },
+    },
+    viewer=ViewerConfig(num_rays_per_chunk=1 << 15),
+    vis="viewer",
+)
+
 method_configs["neus"] = TrainerConfig(
     method_name="neus",
     steps_per_eval_image=500,
