@@ -584,7 +584,7 @@ class Heritage(DataParser):
         if self.config.include_semantics:
             classes = [id_label_mapping_ade20k[i] for i in range(len(id_label_mapping_ade20k))]
             semantics = Semantics(filenames=semantic_filenames, classes=classes, colors=None,
-                                  mask_classes=transient_objects)
+                                  mask_classes=[])  # transient_objects
             metadata["semantics"] = semantics
         if self.config.include_mono_normal:
             metadata["normal_filenames"] = normal_filenames
