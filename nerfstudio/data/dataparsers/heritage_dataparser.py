@@ -306,7 +306,7 @@ class Heritage(DataParser):
         img_path_to_id = {}
         file_list = []
         image_list = list(self.data.glob(f"*{setting_suffix}.tsv"))
-        if image_list:
+        if len(image_list) == 1:
             print(f"Found .tsv file for image list {image_list[0]}")
             self.files = pd.read_csv(image_list[0], sep="\t")
             self.files = self.files[~self.files['id'].isnull()]  # remove data without id
@@ -327,7 +327,7 @@ class Heritage(DataParser):
             #     if v.name in file_list:
             #         img_path_to_id[v.name] = v.id
         else:
-            raise f"Image list not found *{setting_suffix}.tsv"
+            raise f"Image list not found *{setting_suffix}.tsv or {len(image_list)} found instead of 1"
             # for _id, cam in cams.items():
             #     img = imgs[_id]
             #     img_path_to_id[img.name] = img.id
