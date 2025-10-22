@@ -329,7 +329,7 @@ class Heritage(DataParser):
             #     if v.name in file_list:
             #         img_path_to_id[v.name] = v.id
         else:
-            raise f"Image list not found *{setting_suffix}.tsv or {len(image_list)} found instead of 1"
+            raise Exception(f"Image list not found {self.data.name}{setting_suffix}.tsv or {len(image_list)} found instead of 1")
             # for _id, cam in cams.items():
             #     img = imgs[_id]
             #     img_path_to_id[img.name] = img.id
