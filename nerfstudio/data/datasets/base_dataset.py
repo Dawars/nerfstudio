@@ -213,8 +213,8 @@ class InputDataset(Dataset):
         if "is_eval" in self.metadata and self.metadata["is_eval"][image_idx]:
             CONSOLE.log(f"Masking image index {image_idx} in training as it is in eval")
             # mask right half of image
-            mask = torch.zeros((height, width, 1), device=data["image"].device)
-            mask[:, : width // 2, :] = 1
+            mask = torch.zeros((height, width, 1), device=data["image"].device).bool()
+            mask[:, : width // 2, :] = True
             if "mask" in data:
                 mask = mask & data["mask"]
             if "mask" in metadata:
