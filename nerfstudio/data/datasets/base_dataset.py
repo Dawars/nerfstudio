@@ -36,6 +36,7 @@ from nerfstudio.data.dataparsers.base_dataparser import DataparserOutputs
 from nerfstudio.data.utils.data_utils import get_image_mask_tensor_from_path, get_depth_image_from_path, \
     get_semantics_and_mask_tensors_from_path, pil_to_numpy, get_normal_image_from_path
 from nerfstudio.utils.images import BasicImages
+from nerfstudio.utils.rich_utils import CONSOLE
 
 
 class InputDataset(Dataset):
@@ -207,6 +208,19 @@ class InputDataset(Dataset):
                 f"Mask and image have different shapes. Got {mask.shape[:2]} and {data['image'].shape[:2]}"
             )
             metadata.update({"mask": mask, "semantics": semantic_label})
+
+        # current image is in eval dataset
+        if "is_eval" in self.metadata and self.metadata["is_eval"][image_idx]:
+            CONSOLE.log(f"Masking image index {image_idx} in training as it is in eval")
+            # mask right half of image
+            mask = torch.zeros((height, width, 1), device=data["image"].device)
+            mask[:, : width // 2, :] = 1
+            if "mask" in data:
+                mask = mask & data["mask"]
+            if "mask" in metadata:
+                mask = mask & metadata["mask"]
+
+            metadata.update({"mask": mask})
 
         if "sensor_filenames" in self.metadata:
             sensor_filepath = self.metadata["sensor_filenames"][image_idx]

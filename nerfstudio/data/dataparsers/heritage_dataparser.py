@@ -593,7 +593,8 @@ class Heritage(DataParser):
         if self.config.include_sensor_depth:
             metadata["sensor_filenames"] = sensor_filenames
             metadata["depth_unit_scale_factor"] = 1
-
+        if self.config.include_eval_in_train:
+            metadata["is_eval"] = list([self.check_in_eval(i) for i in indices])
         assert len(cameras) == len(image_filenames)
 
         dataparser_outputs = DataparserOutputs(
