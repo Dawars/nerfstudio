@@ -485,6 +485,7 @@ class SurfaceModel(Model):
         if "rgb_no_bg" in outputs:
             images_dict["rgb_no_bg"] = outputs["rgb_no_bg"]
 
+        H, W, _ = image.shape
         # Switch images from [H, W, C] to [1, C, H, W] for metrics computations
         image = torch.moveaxis(image, -1, 0)[None, ...]
         rgb = torch.moveaxis(rgb, -1, 0)[None, ...]
@@ -498,9 +499,11 @@ class SurfaceModel(Model):
 
             image = image * mask
             rgb = rgb * mask
-        psnr = self.psnr(image, rgb)
-        ssim = self.ssim(image, rgb, None)  # for eval take all pixels as nerfbaselines does
-        lpips = self.lpips(image, rgb)
+        image_half = image[..., W // 2:]
+        rgb_half = rgb[..., W // 2:]
+        psnr = self.psnr(image_half, rgb_half)
+        ssim = self.ssim(image_half, rgb_half, None)  # for eval take all pixels as nerfbaselines does
+        lpips = self.lpips(image_half, rgb_half)
 
         # all of these metrics will be logged as scalars
         metrics_dict = {"psnr": float(psnr.item()), "ssim": float(ssim)}  # type: ignore
