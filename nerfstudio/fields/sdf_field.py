@@ -568,9 +568,11 @@ class SDFField(Field):
                     (*directions.shape[:-1], self.config.appearance_embedding_dim), device=directions.device
                 ) * self.embedding_appearance.mean(dim=0)
             else:
-                embedded_appearance = torch.zeros(
-                    (*directions.shape[:-1], self.config.appearance_embedding_dim), device=directions.device
-                )
+                # nerfw eval protocol, half of val images are trained on
+                embedded_appearance = self.embedding_appearance(camera_indices)
+                # embedded_appearance = torch.zeros(
+                #     (*directions.shape[:-1], self.config.appearance_embedding_dim), device=directions.device
+                # )
         if self.config.use_diffuse_color:
             hidden_input = [
                 d,
