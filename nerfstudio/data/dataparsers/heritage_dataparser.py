@@ -420,10 +420,10 @@ class Heritage(DataParser):
 
         # filter image_filenames and poses based on train/eval split percentage
 
-        # Step 5. split the img_ids (the number of images is verfied to match that in the paper)
+        # Step 5. split the img_ids (the number of images is verified to match that in the paper)
         i_train = [i for i, filename in enumerate(image_filenames)
                    if self.files.loc[i, 'split'] == 'train']
-        i_eval = [i for i, filename in enumerate(image_filenames)
+        i_eval = [i for i, filename in enumerate(image_filenames)  # test IDs need to start from 0 to N-1 for app encoding camera id
                   if self.files.loc[i, 'split'] == 'test']
         self.i_eval = i_eval
 
