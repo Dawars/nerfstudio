@@ -594,8 +594,11 @@ class Heritage(DataParser):
             metadata["sensor_filenames"] = sensor_filenames
             metadata["depth_unit_scale_factor"] = 1
         # include eval images in training set during training
+        print(split)
+        print(indices)
         if self.config.include_eval_in_train and split == "train":
-            metadata["is_eval"] = list([self.check_in_eval(i) for i in indices])
+            metadata["is_eval"] = {i: self.check_in_eval(i) for i in indices}
+            print(metadata["is_eval"])
         assert len(cameras) == len(image_filenames)
 
         dataparser_outputs = DataparserOutputs(
