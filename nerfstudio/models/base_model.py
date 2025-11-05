@@ -171,8 +171,10 @@ class Model(nn.Module):
             camera: generates raybundle
             camera_id: needed for appearance embedding
         """
+        rays = camera.generate_rays(camera_indices=0, keep_shape=True, obb_box=obb_box)
+        rays.set_camera_indices(camera_id)
         return self.get_outputs_for_camera_ray_bundle(
-            camera.generate_rays(camera_indices=camera_id, keep_shape=True, obb_box=obb_box)
+            rays
         )
 
     @torch.no_grad()
