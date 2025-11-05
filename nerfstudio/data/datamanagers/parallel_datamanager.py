@@ -38,7 +38,7 @@ from nerfstudio.data.utils.dataloaders import (
     FixedIndicesEvalDataloader,
     RandIndicesEvalDataloader,
     RayBatchStream,
-    variable_res_collate,
+    variable_res_collate, LoopingEvalDataloader,
 )
 from nerfstudio.utils.misc import get_orig_class
 from nerfstudio.utils.rich_utils import CONSOLE
@@ -226,10 +226,18 @@ class ParallelDataManager(DataManager, Generic[TDataset]):
             device=self.device,
             num_workers=self.world_size * 4,
         )
-        self.eval_dataloader = RandIndicesEvalDataloader(  # this is used by ns-render
+        # self.eval_dataloader = RandIndicesEvalDataloader(  # this is used by ns-render
+        #     input_dataset=self.eval_dataset,
+        #     device=self.device,
+        #     num_workers=self.world_size * 4,
+        # )
+
+        self.eval_dataloader = LoopingEvalDataloader(
             input_dataset=self.eval_dataset,
+            image_indices=self.config.eval_image_indices,
             device=self.device,
-            num_workers=self.world_size * 4,
+            num_workers=self.world_size * 2,
+            shuffle=False,
         )
         self.fixed_indices_eval_dataloader = FixedIndicesEvalDataloader(
             input_dataset=self.eval_dataset,
@@ -251,7 +259,7 @@ class ParallelDataManager(DataManager, Generic[TDataset]):
 
     def next_eval_image(self, step: int) -> Tuple[Cameras, Dict]:
         """Retrieve the next eval image."""
-        for camera, batch in self.image_eval_dataloader:
+        for camera, batch in self.fixed_indices_eval_dataloader:
             assert camera.shape[0] == 1
             return camera, batch
         raise ValueError("No more eval images")
