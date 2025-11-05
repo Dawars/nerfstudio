@@ -376,11 +376,11 @@ class VanillaPipeline(Pipeline):
             transient=True,
         ) as progress:
             task = progress.add_task("[green]Evaluating all images...", total=num_images)
-            idx = 0
+            idx = 0  # Note: make sure eval ids correspond to this 0...N-1 in dataparser
             for camera, batch in data_loader:
                 # time this the following line
                 inner_start = time()
-                outputs = self.model.get_outputs_for_camera(camera=camera)
+                outputs = self.model.get_outputs_for_camera(camera=camera, camera_id=idx)
                 height, width = camera.height, camera.width
                 num_rays = height * width
                 metrics_dict, image_dict = self.model.get_image_metrics_and_images(outputs, batch)
