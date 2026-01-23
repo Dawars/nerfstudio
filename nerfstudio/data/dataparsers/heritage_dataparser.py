@@ -15,6 +15,7 @@
 """Phototourism dataset parser. Datasets and documentation here: http://phototour.cs.washington.edu/datasets/"""
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -85,6 +86,8 @@ class HeritageDataParserConfig(DataParserConfig):
     """For nerfw eval protocol when half of test images are trained and other half are evaluated using appearance embedding"""
     depth_extension: str = ".npy"
     """Depth extension, can be e.g. .png, .npy or .npy.gz"""
+    year_meta_path: Path = None
+    """Path to json metadata file containing dict of image_stem: year/date metadata"""
 
 label_id_mapping_ade20k = {'airplane': 90,
                            'animal': 126,
@@ -345,6 +348,10 @@ class Heritage(DataParser):
             error_array[pts_id, 0] = torch.from_numpy(pts.error)
             pts3d_rgb_array[pts_id] = torch.from_numpy(pts.rgb)
 
+        year_meta = None
+        if self.config.year_meta_path is not None:
+            year_meta = json.loads(self.config.year_meta_path.read_text())
+
         # determine mask extension
         mask_root = self.data / "masks" if self.data.joinpath("masks").exists() else self.data.joinpath("dense", "masks")
         segmask_root = self.data / "semantic_maps" if self.data.joinpath("semantic_maps").exists() else self.data.joinpath("dense", "semantic_maps")
@@ -363,6 +370,7 @@ class Heritage(DataParser):
         sensor_filenames = []
         normal_filenames = []
         sparse_pts = []
+        years = []  # year of capture
 
         for filename in file_list:
             if filename not in img_path_to_id.keys():
@@ -384,6 +392,7 @@ class Heritage(DataParser):
             heights.append(torch.tensor(cam.height))
             widths.append(torch.tensor(cam.width))
 
+            years.append(year_meta.get(img.name, -1))
             image_filenames.append(self.data / "dense/images" / img.name)
             mask_filenames.append(mask_root / img.name.replace(".jpg", mask_ext))
             semantic_filenames.append(segmask_root / img.name.replace(".jpg", ".npz"))
@@ -582,6 +591,9 @@ class Heritage(DataParser):
             "points3D_xyz": pts3d_array[:, :3][::every_n],
             "points3D_rgb": pts3d_rgb_array[::every_n],
         }
+        if year_meta is not None:
+            years = [years[i] for i in indices]
+            metadata["years"] = years
 
         if self.config.include_semantics:
             classes = [id_label_mapping_ade20k[i] for i in range(len(id_label_mapping_ade20k))]
