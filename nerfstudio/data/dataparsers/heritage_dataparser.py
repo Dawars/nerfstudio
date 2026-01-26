@@ -392,7 +392,7 @@ class Heritage(DataParser):
             heights.append(torch.tensor(cam.height))
             widths.append(torch.tensor(cam.width))
 
-            years.append(year_meta.get(img.name, -1))
+            if year_meta is not None: years.append(year_meta.get(img.name, -1))
             image_filenames.append(self.data / "dense/images" / img.name)
             mask_filenames.append(mask_root / img.name.replace(".jpg", mask_ext))
             semantic_filenames.append(segmask_root / img.name.replace(".jpg", ".npz"))
